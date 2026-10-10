@@ -59,6 +59,8 @@ convention = "numpy"
 python_version = "3.12"
 strict = true
 files = ["src", "tests"]
+# nbformat ships no type hints for read(); used only by the notebook test
+untyped_calls_exclude = ["nbformat"]
 
 [[tool.mypy.overrides]]
 module = ["statsmodels.*", "yfinance.*", "plotly.*", "kaleido.*"]
