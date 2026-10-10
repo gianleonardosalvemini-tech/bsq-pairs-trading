@@ -2,15 +2,18 @@
 
 BlackSwanQuants take-home project (returning contributors track), 10 October 2026.
 
-**Result in three lines.** I trade the spread KO − 0.388 × PEP with a z-score signal. In-sample (2001–2018)
+**Result in brief.** I trade the spread KO − 0.388 × PEP with a z-score signal. In-sample (2001–2018)
 it earns a little but is not significant (Sharpe 0.35, t = 1.49). Run once on the out-of-sample years
 (2019–2026) it loses (Sharpe −0.53). The simulations of Phase 5 say the spread does pull back over weeks to
-months, but the profit the signal takes from it cannot be told apart from luck.
+months, but the profit the signal takes from it cannot be told apart from luck. Two optional extensions
+confirm it: a hedge ratio that moves with a Kalman filter cuts the 2025 loss but earns less in-sample, and a
+yearly walk-forward of the whole Phase 2 procedure, with trading costs, loses money in 2005–2026.
 
 ## Writeup
 
-**Phases completed: 1 to 5**, one notebook each in `notebooks/`. I did none of the optional extensions.
-Where the brief offered a menu, I picked one method and wrote down why.
+**Phases completed: 1 to 5**, one notebook each in `notebooks/`, **plus two optional extensions**:
+"Dynamic hedge ratio with a Kalman filter" (notebook 06) and "Transaction costs and walk-forward"
+(notebook 07). Where the brief offered a menu, I picked one method and wrote down why.
 
 | Phase | What I did | Why this choice |
 |---|---|---|
@@ -19,6 +22,8 @@ Where the brief offered a menu, I picked one method and wrote down why.
 | 3. Stability | Medium option: rolling hedge ratio and rolling ADF test on 2-year windows | A rolling correlation of daily returns cannot see my problem: the two stocks keep moving together day by day while the ratio of their prices slides for years |
 | 4. Short interest | Nasdaq has PEP only and refuses KO, as the brief warns. I used FINRA, which has both stocks from December 2017 and matches Nasdaq exactly on PEP | The brief allows looking for another source. With FINRA I get both legs over almost nine years instead of one leg over twelve months |
 | 5. Simulation | Joint block bootstrap of the in-sample days (1,000 paths, 10-day blocks), plus a declared extra check with an Ornstein-Uhlenbeck spread | The bootstrap needs no model. The Ornstein-Uhlenbeck option assumes the pull-back that Phase 2 could not prove, so I used it only as a second, declared check |
+| Ext. Kalman filter | Intercept and hedge ratio as a random walk, updated every day with data up to the day before (δ = 1e-4, fixed in advance), same z-score and thresholds as Phase 2 | It is the direct answer to the Phase 2 failure: a hedge ratio fixed once on 2000–2018 cannot follow a relationship that changes |
+| Ext. Costs and walk-forward | 2, 5 and 10 bp per leg on the frozen strategy; every year from 2005, β and the grid cell re-chosen on the 5 previous years with 5 bp costs, then one year of trading | Costs say if the small edge survives trading; the walk-forward says if the Phase 2 procedure works when it only knows the past |
 
 **Phase 1 and the data cleaning.** Before using the prices I went through every corporate event. Yahoo
 handles all ten stock splits correctly. I listed the 187 quarterly dividends of each company one by one, and
@@ -36,8 +41,11 @@ selection rule`). The chosen strategy was frozen in a commit before the out-of-s
 happened once (`feat: freeze the phase 2 strategy before the out-of-sample run`, then `chore: log the single
 phase 2 out-of-sample run`). Nothing in Phases 3–5 changes the frozen strategy, and what they say about
 2019–2026 is analysis after that single run. Every backtest and every test is logged in
-`results/trials.sqlite`: **81 in total**, 73 fixed in advance and 8 exploratory (decided after seeing
-results, and labelled like that in the notebooks). Two extra checks only re-measure runs already logged (a
+`results/trials.sqlite`: **96 in total**, 88 fixed in advance and 8 exploratory (decided after seeing
+results, and labelled like that in the notebooks). The rules of each extension were also committed before
+computing (`feat: pre-register the rules of the Kalman hedge ratio extension before computing`, `feat:
+pre-register the transaction cost and walk-forward rules before computing`), but both extensions come after
+the single out-of-sample run, so for them 2019–2026 is not a fresh test. Two extra checks only re-measure runs already logged (a
 robust t-statistic in Phase 2, a drawdown check in Phase 5), so they are not counted; the notebooks say
 when I added them.
 
@@ -47,6 +55,9 @@ when I added them.
 | 3. Two labels × three windows × in/out-of-sample | 12 | 0 |
 | 4. Comparisons with short interest | 11 | 5 |
 | 5. Simulation configurations and the variance-ratio test | 8 | 3 |
+| Ext. Kalman filter: main δ and two sensitivity values × in/out-of-sample | 6 | 0 |
+| Ext. Costs: three levels × in/out-of-sample | 6 | 0 |
+| Ext. Walk-forward: 5-year training and two sensitivity windows (550 + 475 + 475 grid backtests inside) | 3 | 0 |
 
 The last cell of each notebook checks the numbers of its text with `assert`s, and the test suite runs all
 notebooks from top to bottom.
@@ -75,9 +86,24 @@ after seeing the first results, so exploratory). So there is a real pull-back ov
 not to a fixed level, and the strategy built on it is a small edge that 2000–2018 showed at its best, and
 nothing in the in-sample data could have warned about the break after 2024.
 
+The two extensions point the same way. A Kalman hedge ratio follows the change after 2023 and loses only
+1.3% in 2025 (the frozen strategy lost 16.4%), but it earns less in-sample (Sharpe 0.15 against 0.42 on
+the same days, all of it from the 2008 crisis) and still loses out-of-sample (−0.18). Trading costs are a
+small part of the story: at 5 bp per leg the in-sample Sharpe goes from 0.35 to 0.28, because the strategy
+trades only 94 times in 18 years. The walk-forward matters more. When the Phase 2 procedure re-chooses β and
+the cell every year using only the past five years, it loses in 2005–2018 as well (Sharpe −0.16) and
+−0.23 over 2005–2026. So the good in-sample result of Phase 2 needed the whole 2000–2018 period in view to
+choose β and the cell.
+
+| Sharpe ratio | Up to 2018 (walk-forward from 2005) | 2019–2026 |
+|---|---|---|
+| Frozen strategy with 5 bp costs | 0.28 | −0.60 |
+| Kalman hedge ratio, no costs | 0.15 | −0.18 |
+| Walk-forward, 5-year training, 5 bp costs | −0.16 | −0.35 |
+
 What I am not sure about: 7.8 out-of-sample years are few, and even a true Sharpe ratio of 0.5 could look
-like zero there. Every number is before trading costs, which would make the in-sample result weaker. And
-it is one pair and one split.
+like zero there. The numbers of Phases 2–5 and of the Kalman extension are before trading costs (the
+Kalman version trades twice as often, so costs would hurt it more). And it is one pair.
 
 ## What I would do with more time
 
@@ -85,9 +111,9 @@ it is one pair and one split.
    (in-sample to about mid-2010, out-of-sample after), with the same rules frozen in advance. Two cautions.
    It is no longer a clean test, because I have already seen 2000–2026. And before 2000 PepsiCo was a
    different company. I would also estimate the hedge ratio on log prices, so that the growth of the prices
-   (about 130 times for KO from 1972 to 2018) does not let the recent years dominate the regression. Then I would replace the single split with a walk-forward:
-   estimate on a window, test on the next year, move forward, over the whole period.
-2. **Add trading costs** to every backtest, with a realistic cost per trade.
+   (about 130 times for KO from 1972 to 2018) does not let the recent years dominate the regression. Then I
+   would run the walk-forward of notebook 07 over the whole period, not only from 2005.
+2. **Costs on every backtest**, including the Kalman version, and the cost of borrowing the short leg.
 3. **A second pair, INTC/AMD**, where Nasdaq has short interest on both legs, to see if the same story
    (a relationship that breaks) repeats.
 
@@ -104,6 +130,7 @@ Where I corrected or overrode it:
 - In phase 4 it wanted to skip KO, which Nasdaq does not cover. I asked it to look for another source, and it found FINRA data for both stocks.
 - I asked for a harsh review of phase 5 because it did not convince me, and the review changed its conclusion.
 - I asked whether phase 5 really answered the brief, since it reported only the Sharpe ratio. I asked for a table of all the metrics, and it showed the result that surprised me most: the real drawdown was much milder than on almost every simulated path.
+- For the extensions I chose to start from the Kalman filter, as the direct consequence of the Phase 2 failure, and to add costs and the walk-forward; the rules of both were committed before computing.
 
 Mistakes the AI made:
 
@@ -113,6 +140,7 @@ Mistakes the AI made:
 - A commit message claimed a README section that did not exist.
 - Its first conclusion for phase 5 was wrong.
 - It claimed the t-statistic was optimistic, but Newey-West computation proved it wrong.
+- In the extensions two of its written guesses were wrong: the Kalman hedge ratio never became negative, and costs cut the Sharpe ratio much less than it expected.
 
 The notebook prose was drafted by the AI; I found it too polished and uniform and had it rewritten in a plainer style under strict rules (no number and no pre-registration statement could change, checked automatically, all notebooks re-run).
 
@@ -126,7 +154,8 @@ uv sync          # Python 3.12, exact versions from uv.lock
 uv run pytest    # unit tests, then every notebook from top to bottom (about 3 minutes)
 ```
 
-The notebooks are in `notebooks/`, one per phase, and run on the `.venv` kernel. On Windows set
+The notebooks are in `notebooks/`, one per phase plus 06 and 07 for the extensions, and run on the `.venv`
+kernel. On Windows set
 `PYTHONUTF8=1` before running them from the command line. No API key is needed. All downloads are saved as
 pickle checkpoints in `data/` (Yahoo rewrites its adjusted prices, so a new download would not reproduce
 the results). The Phase 5 simulation takes about four minutes, so it is saved in
@@ -134,8 +163,8 @@ the results). The Phase 5 simulation takes about four minutes, so it is saved in
 
 | Path | Content |
 |---|---|
-| `src/pairs/` | Library code: data, spread, backtest, stability, short interest, simulation, trial log |
-| `notebooks/` | One notebook per phase, each ending with assertions on its numbers |
+| `src/pairs/` | Library code: data, spread, backtest, stability, short interest, simulation, Kalman filter, costs and walk-forward, trial log |
+| `notebooks/` | One notebook per phase and per extension, each ending with assertions on its numbers |
 | `tests/` | pytest unit tests, and a test that runs every notebook |
 | `results/` | Figures and the SQLite log of every trial (`trials.sqlite`) |
 | `ai/` | Files produced by the AI assistant, left as they are (see the disclosure) |
@@ -150,6 +179,7 @@ custom exceptions, `as_of` dates in every estimate). I skipped the optional PySi
 | ADF test (Augmented Dickey-Fuller) | A test of whether a series is stationary; a low p-value says it keeps returning to a fixed average, and Phase 3 runs it on rolling windows of the spread. |
 | Adjusted close | The closing price rewritten by Yahoo for later splits and dividends, so that its changes measure the total return of holding the share; all returns in this project use it. |
 | Autocorrelation | The correlation of a series with its own earlier values; if daily returns are autocorrelated, a plain t-statistic can overstate the evidence. |
+| Basis point (bp) | One hundredth of a percent (0.01%); notebook 07 charges 2, 5 or 10 bp of the value traded on each leg. |
 | Backtest | A replay of a trading rule on past prices, day by day, to see what it would have earned using only information available at the time. |
 | Block bootstrap | Building synthetic histories by gluing together randomly drawn blocks of consecutive real days; in Phase 5 each block holds both stocks on the same days. |
 | Close | The last traded price of the day as it was quoted at the time, before any later adjustment for splits or dividends. |
@@ -166,7 +196,7 @@ custom exceptions, `as_of` dates in every estimate). I skipped the optional PySi
 | Half-life | The number of days a deviation of the spread from its average takes to shrink by half, estimated by regressing the daily change of the spread on its previous level. |
 | Hedge ratio (β) | The number of PEP shares held against one KO share, estimated by OLS of the KO price on the PEP price, so that the spread moves as little as possible. |
 | In-sample | The earlier part of the data, the only part used to estimate and tune the strategy. |
-| Kalman filter | A method that updates an estimate every day as new data arrives; it is listed as an extension that would let the hedge ratio change over time. |
+| Kalman filter | A method that updates an estimate every day as new data arrives, giving more weight to the new data when the old estimate is uncertain; notebook 06 uses it to let the hedge ratio change over time. |
 | Leg | One of the two stocks in a pairs position, for example the long KO leg and the short PEP leg. |
 | Log scale | A chart axis on which equal distances mean equal percentage changes, so that growth over many decades stays readable. |
 | Long the spread | Buying KO and selling β shares of PEP, a bet that the spread will rise; the strategy does this when the z-score is very negative. |
@@ -204,12 +234,12 @@ custom exceptions, `as_of` dates in every estimate). I skipped the optional PySi
 | Synthetic path | An artificial price history built in Phase 5 from pieces of the real in-sample data, used to see how results vary across histories that could have happened. |
 | t-statistic | An estimate divided by its standard error; here the Sharpe ratio times the square root of the years, and values near zero mean the result could be luck. |
 | Total return | The gain from holding a share including both the price change and the dividends received. |
-| Trading costs | Commissions, bid-ask spreads and borrowing fees paid when trading; all results in this project are reported before costs. |
+| Trading costs | Commissions, bid-ask spreads and borrowing fees paid when trading; results are before costs except in notebook 07, which charges a share of the value traded on each leg. |
 | Trial log | The database in results/trials.sqlite that records every backtest and comparison run, so the number of attempts behind each result is visible. |
 | Variance ratio | The variance of the spread's moves over several days compared with what its daily variance predicts for a random walk; a lower value means moves get partly undone later. |
 | Volatility | The standard deviation of returns, a measure of how much they swing, usually expressed per year. |
 | Volume | The number of shares traded in a day. |
-| Walk-forward | Re-estimating a strategy on a past window and testing it on the following unseen period, then moving both forward and repeating; it is listed as an extension. |
+| Walk-forward | Re-estimating a strategy on a past window and testing it on the following unseen period, then moving both forward and repeating; notebook 07 does it one year at a time. |
 | Weak period | A day flagged in Phase 3 because the rolling ADF test on the spread gives a high p-value, meaning the recent spread looks less mean-reverting. |
 | Welch t-test | A test of whether two groups have different averages that does not assume they have the same variance; Phases 3 and 4 use it to compare groups. |
 | z-score | How many standard deviations the spread is from its rolling average over the last days, computed with past and current data only; it drives the trading signal. |

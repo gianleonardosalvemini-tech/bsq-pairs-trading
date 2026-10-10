@@ -218,3 +218,7 @@ Struttura del README da concordare con l'utente (bozza in 10 punti in `ai/prompt
   DD −37%, perde anche nel 2005-2018 (−0,16); 2026 −17,9%. Sensibilità 2008-2026: 5 a −0,04, 3 a 0,11, 8 a −0,11.
   β passato 0,03-0,73; finestra 190 scelta 15 volte su 22. Registro: **96** prove.
 - Prossimo: commit, README (estensioni, tabella metodi, conteggio 96, conclusione, "with more time"), push su ordine.
+- Estensione 1 committata (`b24bc1b`). README aggiornato (19:08 PC): risultato in breve, fasi + 2 estensioni nella
+  tabella metodi, 96 prove (88 prefissate, 8 esplorative) con i commit di pre-registrazione, conclusione con tabella
+  delle estensioni, limiti (costi), "with more time" senza i punti fatti, disclosure (scelta Kalman, due previsioni
+  sbagliate dell'AI), how to run, glossario (bp, Kalman, costi, walk-forward). Prossimo: push su ordine dell'utente.
