@@ -130,8 +130,10 @@ Kalman version trades twice as often, so costs would hurt it more). And the seco
    would run the walk-forward of notebook 07 over the whole period, not only from 2005.
 2. **Costs on every backtest**, including the Kalman version and INTC/AMD, and the cost of borrowing the
    short leg.
-3. **The full set of phases on INTC/AMD**: the date-by-date check of splits and dividends, short interest
-   (Nasdaq has both legs) and the simulation.
+3. **A basket instead of a pair**: extend to 3 or more related assets instead of 2, and build a spread
+   from all of them together.
+4. **A more complete analysis of INTC/AMD**: the date-by-date check of splits and dividends of Phase 1,
+   short interest (Nasdaq has both legs), the simulation of Phase 5 and transaction costs.
 
 ## AI Usage Disclosure & Workflow Architecture
 
