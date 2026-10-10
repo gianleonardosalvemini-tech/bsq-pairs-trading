@@ -1,0 +1,3 @@
+# Keep LF line endings everywhere (CI runs on Linux; ruff and git stay consistent on Windows)
+* text=auto eol=lf
+*.png binary
