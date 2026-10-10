@@ -366,3 +366,42 @@ def correct_dividend_errors(
         assert abs(adj_return - close_return) < 1e-4, "correction did not remove the dividend"
         logger.info("Removed wrong %s dividend of %s (factor %.5f)", error.ticker, ex_day, factor)
     return fixed
+
+
+def load_pair_prices(pair: PairConfig, data_dir: Path, last_day: date) -> pd.DataFrame:
+    """Load the pair's adjusted close from ``pair.start`` to ``last_day``, known errors fixed.
+
+    Parameters
+    ----------
+    pair : PairConfig
+        The pair and its sample dates.
+    data_dir : Path
+        Folder with the raw checkpoint (see :func:`fetch_raw_prices`).
+    last_day : date
+        Last date kept (inclusive), e.g. ``pair.in_sample_end`` for in-sample work.
+
+    Returns
+    -------
+    pd.DataFrame
+        One column per ticker (``ticker_a``, ``ticker_b``), days with both prices only.
+
+    Raises
+    ------
+    AssertionError
+        If a date after ``last_day`` or before ``pair.start`` survives.
+
+    Notes
+    -----
+    The single entry point of Phases 2-5: dates are cut first, then the wrong dividends of
+    ``KNOWN_DIVIDEND_ERRORS`` are removed with :func:`correct_dividend_errors`.
+    """
+    raw = fetch_raw_prices(pair, data_dir)
+    raw = raw.loc[(raw.index >= pd.Timestamp(pair.start)) & (raw.index <= pd.Timestamp(last_day))]
+    adjusted = pd.DataFrame(raw["Adj Close"][[pair.ticker_a, pair.ticker_b]])
+    prices = correct_dividend_errors(adjusted, raw, KNOWN_DIVIDEND_ERRORS).dropna()
+    assert prices.index.min() >= pd.Timestamp(pair.start), "data before pair.start"
+    assert prices.index.max() <= pd.Timestamp(last_day), "data after last_day"
+    logger.info(
+        "Loaded %d days of %s/%s up to %s", len(prices), pair.ticker_a, pair.ticker_b, last_day
+    )
+    return prices

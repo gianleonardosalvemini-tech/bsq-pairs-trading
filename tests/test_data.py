@@ -72,3 +72,17 @@ def test_correct_dividend_errors_undoes_a_fake_dividend(tmp_path: Path) -> None:
     assert fixed["KO"].tolist() == pytest.approx([100.0] * 4)
     assert fixed["PEP"].equals(prices["PEP"])
     assert prices["KO"].iloc[0] == 99.0  # input untouched
+
+
+def test_load_pair_prices_cuts_dates_and_fixes_the_known_dividend() -> None:
+    from pairs.config import PAIR as REAL_PAIR
+    from pairs.config import Settings
+    from pairs.data import load_pair_prices
+
+    prices = load_pair_prices(REAL_PAIR, Settings.from_env().data_dir, REAL_PAIR.in_sample_end)
+    assert list(prices.columns) == [REAL_PAIR.ticker_a, REAL_PAIR.ticker_b]
+    assert prices.index.min() >= pd.Timestamp(REAL_PAIR.start)
+    assert prices.index.max() == pd.Timestamp(REAL_PAIR.in_sample_end)
+    assert not prices.isna().any().any()
+    ex_day = pd.Timestamp("2001-09-10")  # the fake KO dividend must no longer show as a +0.73% jump
+    assert abs(prices[REAL_PAIR.ticker_a].pct_change().loc[ex_day]) < 0.005
