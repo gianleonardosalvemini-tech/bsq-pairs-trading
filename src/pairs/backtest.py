@@ -58,7 +58,7 @@ def positions_from_zscore(z: pd.Series, entry: float, exit: float = 0.0) -> pd.S
     return pd.Series(out, index=z.index, name="position")
 
 
-def pair_shares(position: pd.Series, a: str, b: str, beta: float) -> pd.DataFrame:
+def pair_shares(position: pd.Series, a: str, b: str, beta: float | pd.Series) -> pd.DataFrame:
     """Shares held in each leg for a spread position: ``+1 A, -beta B`` per unit.
 
     Parameters
@@ -69,7 +69,7 @@ def pair_shares(position: pd.Series, a: str, b: str, beta: float) -> pd.DataFram
         Leg bought when long the spread.
     b : str
         Leg sold (``beta`` shares) when long the spread.
-    beta : float
+    beta : float or pd.Series
         Hedge ratio, a number or a series aligned with ``position``.
 
     Returns

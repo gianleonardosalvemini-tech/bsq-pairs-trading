@@ -346,6 +346,6 @@ class KalmanRules:
             raise ConfigError(f"init_end {self.init_end} must be inside the in-sample period")
 
 
-# Fixed at 18:50 on 10 Oct 2026, before running any Kalman filter on the data. 1 main
+# Fixed at 18:40 on 10 Oct 2026, before running any Kalman filter on the data. 1 main
 # variant + 2 sensitivity deltas, each in-sample and out-of-sample = 6 declared trials.
 KALMAN_RULES = KalmanRules()

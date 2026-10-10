@@ -197,8 +197,14 @@ Struttura del README da concordare con l'utente (bozza in 10 punti in `ai/prompt
 - Prossimo: estensioni (1 costi + walk-forward, regole approvate; 2 da scegliere, consiglio Kalman). Prompt per la
   nuova chat: `BSQ/HACKATON BSQ/handoff/prompt_estensioni.md`. Stop 20:00, push finale entro 20:30.
 
-## Estensione Kalman (18:50 PC): regole registrate in `config.py` (`KALMAN_RULES`) prima di ogni calcolo
+## Estensione Kalman (18:40 PC): regole registrate in `config.py` (`KALMAN_RULES`) prima di ogni calcolo
 - L'utente ha scelto di iniziare dal Kalman. δ 1e-4 (Chan), sensibilità 1e-5 e 1e-3, avvio OLS sul 2000, rumore
   di osservazione = varianza dei residui OLS IS, spread con stime fino a t−1, z/soglie congelate, β del trade fisso
   all'ingresso, segno libero, niente costi (confronto alla pari con la fase 2). 6 prove dichiarate (fase "ext-kalman").
 - Previsione scritta prima: il Kalman limita la perdita OOS del 2024-26 ma lo Sharpe IS scende sotto 0,35 (0,1-0,2).
+- Risultato (notebook `06_kalman.ipynb`, `src/pairs/kalman.py`, `tests/test_kalman.py`, builder `ai/scripts/build_nb06.py`):
+  β Kalman 0,10-0,63, mai negativo (0,30 fino al 2023, 0,62 a ott 2026). IS Sharpe 0,15 (t 0,62) contro 0,42 della
+  fase 2 sugli stessi giorni; tutto il guadagno IS viene da set 2008-mar 2009 (18,5% su 17,6%). OOS −0,18 contro
+  −0,53 (2025: −1,3% contro −16,4%). Trade 191 contro 94, 9 giorni contro 32. Sensibilità: δ 1e-3 −0,13/−0,07,
+  δ 1e-5 0,40/0,03 (visto dopo: non si sceglie). Previsione confermata. Registro: **87** prove (81 + 6).
+- Prossimo: commit, poi estensione 1 (min_trades 6/3/9 da confermare), README, push su ordine.
