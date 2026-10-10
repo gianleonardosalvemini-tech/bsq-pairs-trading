@@ -281,3 +281,71 @@ class FrozenStrategy:
 # Frozen at 13:20 on 10 Oct 2026, after 49 in-sample trials and before any look at
 # 2019-2026. The notebook re-estimates beta and asserts it matches this value.
 PHASE2_STRATEGY = FrozenStrategy(entry=1.5, window=60, exit=0.0, beta=0.388372)
+
+
+@dataclass(frozen=True)
+class KalmanRules:
+    """Extension rules: a hedge ratio that moves with a Kalman filter, fixed before computing.
+
+    Attributes
+    ----------
+    delta : float
+        Speed of the hedge ratio. Each day the intercept and the hedge ratio take a random
+        step with variance ``delta / (1 - delta)``. 1e-4 is the textbook value (E. Chan,
+        Algorithmic Trading, 2013), taken as is and never tuned.
+    sensitivity_deltas : tuple of float
+        Slower and faster filters, run only to show how much the result depends on ``delta``.
+    init_end : date
+        The filter starts from the OLS fit on the prices up to this day (the year 2000) and
+        runs from the next trading day.
+
+    Raises
+    ------
+    ConfigError
+        If a delta is not in (0, 1) or the start-up period is outside the in-sample period.
+
+    Notes
+    -----
+    The observation noise is the variance of the residuals of the Phase 2 OLS fit (as_of
+    the in-sample end). The spread of day t uses only the intercept and hedge ratio
+    estimated with data up to t-1. The z-score, thresholds and exit are the frozen Phase 2
+    ones (window 60, entry 1.5, exit 0). The hedge ratio of a trade is the one of the day
+    the trade opens and stays fixed until it closes. No constraint on its sign. No
+    transaction costs, so the result compares with Phase 2. Decided after the single
+    out-of-sample run of Phase 2: 2019-2026 is not a fresh out-of-sample period here.
+    """
+
+    delta: float = 1e-4
+    sensitivity_deltas: tuple[float, ...] = (1e-5, 1e-3)
+    init_end: date = date(2000, 12, 31)
+
+    def __post_init__(self) -> None:
+        """Fail fast on inconsistent rules.
+
+        Parameters
+        ----------
+        None
+            Validates the fields set by the dataclass constructor.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ConfigError
+            If a delta is not in (0, 1) or ``init_end`` is not inside the in-sample period.
+
+        Notes
+        -----
+        Checked at construction, like the other research parameters.
+        """
+        if not all(0 < d < 1 for d in (self.delta, *self.sensitivity_deltas)):
+            raise ConfigError("every delta must be in (0, 1)")
+        if not PAIR.start < self.init_end < PAIR.in_sample_end:
+            raise ConfigError(f"init_end {self.init_end} must be inside the in-sample period")
+
+
+# Fixed at 18:50 on 10 Oct 2026, before running any Kalman filter on the data. 1 main
+# variant + 2 sensitivity deltas, each in-sample and out-of-sample = 6 declared trials.
+KALMAN_RULES = KalmanRules()

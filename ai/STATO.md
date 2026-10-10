@@ -190,3 +190,15 @@ Prima: valutazione dei notebook secondo "How we evaluate" del PDF e aderenza all
 
 ## Prossimo passo
 Struttura del README da concordare con l'utente (bozza in 10 punti in `ai/prompt_readme.md`), poi scrittura.
+
+## Push delle ~18:45 (su ordine dell'utente): GitHub `main` = `08fcef0`
+- `32ac6ed` prosa dei notebook riscritta (5 sub-agenti, controllo automatico di numeri/codice/titoli) · `118e79c`
+  README · `08fcef0` CLAUDE.md + `ai/` (diario compreso, scelta dell'utente) + `ai/` esclusa da ruff in pyproject.
+- Prossimo: estensioni (1 costi + walk-forward, regole approvate; 2 da scegliere, consiglio Kalman). Prompt per la
+  nuova chat: `BSQ/HACKATON BSQ/handoff/prompt_estensioni.md`. Stop 20:00, push finale entro 20:30.
+
+## Estensione Kalman (18:50 PC): regole registrate in `config.py` (`KALMAN_RULES`) prima di ogni calcolo
+- L'utente ha scelto di iniziare dal Kalman. δ 1e-4 (Chan), sensibilità 1e-5 e 1e-3, avvio OLS sul 2000, rumore
+  di osservazione = varianza dei residui OLS IS, spread con stime fino a t−1, z/soglie congelate, β del trade fisso
+  all'ingresso, segno libero, niente costi (confronto alla pari con la fase 2). 6 prove dichiarate (fase "ext-kalman").
+- Previsione scritta prima: il Kalman limita la perdita OOS del 2024-26 ma lo Sharpe IS scende sotto 0,35 (0,1-0,2).
