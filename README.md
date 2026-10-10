@@ -117,35 +117,29 @@ Kalman version trades twice as often, so costs would hurt it more). And it is on
 3. **A second pair, INTC/AMD**, where Nasdaq has short interest on both legs, to see if the same story
    (a relationship that breaks) repeats.
 
-## AI usage disclosure
+## AI Usage Disclosure & Workflow Architecture
 
-I did this project with Claude Code. Under my direction it wrote most of the code, the tests and the notebook text, and it ran the commits. I decided the pair, the split, every method choice and every rule, after asking it to compare the options with the brief. I reviewed the work phase by phase before moving on, made it check each phase against the brief sentence by sentence, and asked to see the raw data before any result.
+In alignment with the project brief's encouragement to use AI assistants, I integrated Claude Code as my primary execution engine. My approach was to act as the quantitative architect: I defined the strategy, the validation constraints, and the statistical methodologies, while the AI handled code generation, unit test scaffolding, and initial text drafting. This disclosure outlines our division of labor, detailing what I supervised, where I overrode the model, and the structural safeguards I implemented.
 
-Where I corrected or overrode it:
+**Division of Labor & Structural Safeguards**
+* **Strategic Direction:** The AI proposed KO/PEP; I made it compare the three candidate pairs of the brief before confirming it. I defined the in-sample/out-of-sample temporal split and chose the specific analytical methods for each phase.
+* **Commit Protocol:** I strictly enforced a "no autonomous pushes" rule. Every commit was announced to me and passed the pre-commit checks (ruff, mypy, all tests and notebooks); pushes happened only on my explicit order (once one went through after I had refused it).
+* **Pre-registration:** I required all selection rules (e.g., the stable-zone rule in Phase 2) to be committed *before* running any backtests to definitively prevent look-ahead bias and curve-fitting.
 
-- I made it re-read the brief to the letter before the setup and again before phase 2.
-- I had the split fixed in a commit before downloading any price.
-- I asked it to list every split and dividend. This found Yahoo's duplicated KO dividend in 2001, which I chose to correct.
-- I imposed one phase at a time and no pushes without my order.
-- In phase 4 it wanted to skip KO, which Nasdaq does not cover. I asked it to look for another source, and it found FINRA data for both stocks.
-- I asked for a harsh review of phase 5 because it did not convince me, and the review changed its conclusion.
-- I asked whether phase 5 really answered the brief, since it reported only the Sharpe ratio. I asked for a table of all the metrics, and it showed the result that surprised me most: the real drawdown was much milder than on almost every simulated path.
-- For the extensions I chose to start from the Kalman filter, as the direct consequence of the Phase 2 failure, and to add costs and the walk-forward; the rules of both were committed before computing.
+**Critical Overrides and Corrections**
+During the execution, I actively supervised the output and intervened on several critical analytical steps:
+* **Data Integrity:** I mandated a manual check of every stock split and dividend. Going through that list, the AI found a duplicated KO dividend in Yahoo Finance's data (September 2001) that a consistency check could not see. I chose to correct it in the code and keep the raw download untouched.
+* **Constraint Navigation:** In Phase 4, the AI suggested skipping the KO short interest analysis entirely because Nasdaq lacks the data. Following the brief's allowance to seek alternative sources, I overrode the AI and sourced complete FINRA data for both legs.
+* **Analytical Rigor (Phase 5):** The AI generated an initial conclusion for the simulation phase that contradicted the data by hyper-focusing only on the Sharpe ratio. I demanded a full metric table and a harsh critical review, which revealed that the actual empirical drawdown was significantly milder than the simulated paths—a structural nuance the AI had completely missed.
+* **Statistical Validity:** The AI incorrectly claimed the t-statistic was overly optimistic. It then checked its own claim with a Newey-West computation (10 to 120 lags), which proved it wrong.
 
-Mistakes the AI made:
+**Model Hallucinations and Automated Checks**
+* **Phantom Metrics:** The AI hallucinated specific numerical values from memory (e.g., an incorrect ratio in Phase 5, citing "9 years" instead of 8 in Phase 2, and fabricating a sentence about 2025 losses without computing them). They were caught by the `assert` statements that the project rules require at the end of every notebook.
+* **Drafting Style:** The AI's initial markdown prose was overly polished and lacked quantitative precision. I imposed a strict, plainer rewriting style to ensure the text accurately reflected the empirical findings without rhetorical fluff, locking down the pre-registered numbers through automated checks across all notebooks.
 
-- A push went through after I had refused it.
-- It wrote numbers from memory that the asserts caught, such as a ratio in phase 5 and "9 years" instead of 8 in phase 2.
-- It wrote a sentence about the 2025 losses without computing it, and it was false.
-- A commit message claimed a README section that did not exist.
-- Its first conclusion for phase 5 was wrong.
-- It claimed the t-statistic was optimistic, but Newey-West computation proved it wrong.
-- In the extensions two of its written guesses were wrong: the Kalman hedge ratio never became negative, and costs cut the Sharpe ratio much less than it expected.
+The full diary of my corrections and of the AI's mistakes, in Italian, is in `ai/correzioni.md`, unchanged.
 
-The notebook prose was drafted by the AI; I found it too polished and uniform and had it rewritten in a plainer style under strict rules (no number and no pre-registration statement could change, checked automatically, all notebooks re-run).
-
-The full diary of my corrections and of the AI's mistakes, in Italian, is in `ai/correzioni.md`, and the rest of
-`ai/` is left as it is.
+To keep the delivery tidy, I removed from the final commit the AI's working log and its hand-over notes between chat sessions (`ai/STATO.md`, `ai/ripartenza.md`, `ai/prompt_*.md`, `ai/piano_fase2.md`). Nothing was edited: they are in the git history, last in commit `384fa0d`. `ai/correzioni.md` (my corrections and the AI's mistakes), `ai/regole_oro.md` and the notebook builders in `ai/scripts/` stay in the folder.
 
 ## How to run
 

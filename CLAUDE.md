@@ -7,6 +7,10 @@ Tema e linee guida: PDF ufficiali, riassunti e trasformati in caselle in @ai/reg
 ## A inizio sessione
 Leggi `ai/STATO.md`: dice a che punto siamo. Non chiedere all'utente di rispiegare.
 
+> Nota (10 ott, 19:20): per ordine, nella consegna finale l'utente ha tolto `ai/STATO.md`, i passaggi di
+> consegne (`ai/ripartenza.md`, `ai/prompt_*.md`) e `ai/piano_fase2.md`. Restano nella cronologia di git
+> (ultimo commit che li contiene: `384fa0d`).
+
 ## Cosa conta per loro, in ordine
 1. Validazione onesta: in-sample / out-of-sample separati, l'out-of-sample si lancia **una volta**, alla fine.
 2. Contare e dichiarare **tutto quello che si prova** (ogni backtest va registrato nel log SQLite delle prove).
