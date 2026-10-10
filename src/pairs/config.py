@@ -349,3 +349,106 @@ class KalmanRules:
 # Fixed at 18:40 on 10 Oct 2026, before running any Kalman filter on the data. 1 main
 # variant + 2 sensitivity deltas, each in-sample and out-of-sample = 6 declared trials.
 KALMAN_RULES = KalmanRules()
+
+
+@dataclass(frozen=True)
+class CostWalkForwardRules:
+    """Extension rules: transaction costs and a rolling walk-forward, fixed before computing.
+
+    Attributes
+    ----------
+    cost_levels_bps : tuple of float
+        One-way cost per leg, in basis points of the dollar value traded, applied to the
+        frozen Phase 2 strategy in-sample and out-of-sample.
+    cost_bps : float
+        Cost used inside the walk-forward, in training and in test.
+    first_test_year, last_test_year : int
+        Calendar years traded by the walk-forward, one at a time.
+    train_years : int
+        Calendar years before each test year used to fit beta and choose the grid cell.
+    sensitivity_train_years : tuple of int
+        Other training lengths, run only as sensitivity on the common years.
+    common_first_year : int
+        First test year that every training length can reach (8 years after 2000).
+
+    Raises
+    ------
+    ConfigError
+        If the costs are negative, the years are inconsistent or a training window starts
+        before the sample.
+
+    Notes
+    -----
+    Each test year: OLS beta on the training years (as_of 31 December of the year before),
+    the 25 cells of :class:`SignalGrid` backtested on the same years with costs, the
+    stable-zone rule with a minimum number of trades scaled to the window
+    (:meth:`min_trades`), then the chosen cell trades the test year starting flat and
+    closes any open position on its last day. Decided after the single out-of-sample run
+    of Phase 2: the years 2019-2026 are not a fresh test here.
+    """
+
+    cost_levels_bps: tuple[float, ...] = (2.0, 5.0, 10.0)
+    cost_bps: float = 5.0
+    first_test_year: int = 2005
+    last_test_year: int = 2026
+    train_years: int = 5
+    sensitivity_train_years: tuple[int, ...] = (3, 8)
+    common_first_year: int = 2008
+
+    def min_trades(self, train_years: int) -> int:
+        """Fewest training trades for a cell to be selectable.
+
+        Parameters
+        ----------
+        train_years : int
+            Length of the training window, in years.
+
+        Returns
+        -------
+        int
+            The Phase 2 minimum (20 trades in about 18 years) scaled to the window:
+            6 for 5 years, 3 for 3 years, 9 for 8 years.
+
+        Notes
+        -----
+        Without scaling, 20 trades in 5 years would rule out almost every cell with a high
+        threshold, and the grid would shrink to one or two choices.
+        """
+        return round(SIGNAL_GRID.min_trades * train_years / 18)
+
+    def __post_init__(self) -> None:
+        """Fail fast on inconsistent rules.
+
+        Parameters
+        ----------
+        None
+            Validates the fields set by the dataclass constructor.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ConfigError
+            If a cost is negative, the years are not ordered or a training window would
+            start before ``PAIR.start``.
+
+        Notes
+        -----
+        Checked at construction, like the other research parameters.
+        """
+        if min(*self.cost_levels_bps, self.cost_bps) < 0:
+            raise ConfigError("costs must be non-negative")
+        if not self.first_test_year <= self.common_first_year <= self.last_test_year:
+            raise ConfigError("test years are not ordered")
+        for years in (self.train_years, *self.sensitivity_train_years):
+            first = self.common_first_year if years != self.train_years else self.first_test_year
+            if first - years < PAIR.start.year:
+                raise ConfigError(f"{years}-year training starts before the sample")
+
+
+# Fixed at 18:55 on 10 Oct 2026, before computing any cost or walk-forward result.
+# 3 cost levels x 2 periods = 6 trials; walk-forward 1 main + 2 sensitivity = 3 trials,
+# each running 25 grid cells per test year (22 x 25 = 550 inside the main one).
+COST_WF_RULES = CostWalkForwardRules()

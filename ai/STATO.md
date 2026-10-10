@@ -208,3 +208,7 @@ Struttura del README da concordare con l'utente (bozza in 10 punti in `ai/prompt
   −0,53 (2025: −1,3% contro −16,4%). Trade 191 contro 94, 9 giorni contro 32. Sensibilità: δ 1e-3 −0,13/−0,07,
   δ 1e-5 0,40/0,03 (visto dopo: non si sceglie). Previsione confermata. Registro: **87** prove (81 + 6).
 - Prossimo: commit, poi estensione 1 (min_trades 6/3/9 da confermare), README, push su ordine.
+
+## Estensione 1, costi + walk-forward (18:55 PC): regole registrate in `config.py` (`COST_WF_RULES`) prima di calcolare
+- Kalman committato (`0bcee87`). Utente: min_trades 6/3/9 ok. Regole come approvate (2/5/10 bp sulla strategia congelata
+  IS e OOS = 6 prove; walk-forward 2005-2026, 5 anni, 5 bp, sensibilità 3 e 8 anni sul 2008-2026 = 3 prove).
