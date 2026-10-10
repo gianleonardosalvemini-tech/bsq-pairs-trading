@@ -212,3 +212,9 @@ Struttura del README da concordare con l'utente (bozza in 10 punti in `ai/prompt
 ## Estensione 1, costi + walk-forward (18:55 PC): regole registrate in `config.py` (`COST_WF_RULES`) prima di calcolare
 - Kalman committato (`0bcee87`). Utente: min_trades 6/3/9 ok. Regole come approvate (2/5/10 bp sulla strategia congelata
   IS e OOS = 6 prove; walk-forward 2005-2026, 5 anni, 5 bp, sensibilità 3 e 8 anni sul 2008-2026 = 3 prove).
+- Risultato (notebook `07_costs_walkforward.ipynb`, `src/pairs/walkforward.py` dalla bozza con tipi sistemati,
+  `tests/test_walkforward.py`, builder `ai/scripts/build_nb07.py`): costi 5 bp → Sharpe IS 0,35 → 0,28 (0,52%/anno,
+  solo 94 trade; previsione 0,15 sbagliata), OOS −0,53 → −0,60. Walk-forward 5 anni: 2005-2026 Sharpe −0,23 (t −1,06),
+  DD −37%, perde anche nel 2005-2018 (−0,16); 2026 −17,9%. Sensibilità 2008-2026: 5 a −0,04, 3 a 0,11, 8 a −0,11.
+  β passato 0,03-0,73; finestra 190 scelta 15 volte su 22. Registro: **96** prove.
+- Prossimo: commit, README (estensioni, tabella metodi, conteggio 96, conclusione, "with more time"), push su ordine.
