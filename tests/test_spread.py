@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from pairs.spread import build_spread, fit_hedge_ratio
+from pairs.spread import build_spread, fit_hedge_ratio, rolling_zscore
 
 
 def make_prices() -> pd.DataFrame:
@@ -44,3 +44,20 @@ def test_build_spread_known_values() -> None:
     spread = build_spread(prices, "KO", "PEP", beta=2.0)
     assert spread.tolist() == pytest.approx([2.0, 2.0])
     assert spread.name == "spread"
+
+
+def test_zscore_ignores_the_future() -> None:
+    spread = make_prices()["KO"].rename("spread")
+    z = rolling_zscore(spread, 60)
+    changed = spread.copy()
+    changed.iloc[500:] += 100.0
+    z_changed = rolling_zscore(changed, 60)
+    pd.testing.assert_series_equal(z.iloc[:500], z_changed.iloc[:500])
+    assert z.iloc[:59].isna().all()
+    assert z.iloc[59:].notna().all()
+
+
+def test_zscore_known_value() -> None:
+    spread = pd.Series([1.0, 2.0, 3.0, 6.0])
+    z = rolling_zscore(spread, 3)
+    assert z.iloc[3] == pytest.approx((6.0 - 11 / 3) / np.std([2.0, 3.0, 6.0], ddof=1))

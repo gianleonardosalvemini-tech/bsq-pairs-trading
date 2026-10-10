@@ -111,3 +111,34 @@ def build_spread(prices: pd.DataFrame, a: str, b: str, beta: float) -> pd.Series
     """
     spread = (prices[a] - beta * prices[b]).rename("spread")
     return spread
+
+
+def rolling_zscore(spread: pd.Series, window: int) -> pd.Series:
+    """Measure the spread's distance from its rolling average, in rolling standard deviations.
+
+    Parameters
+    ----------
+    spread : pd.Series
+        Output of :func:`build_spread`.
+    window : int
+        Trading days in the rolling mean and standard deviation (today included).
+
+    Returns
+    -------
+    pd.Series
+        z-score named ``"z"``; NaN until the window is full.
+
+    Raises
+    ------
+    AssertionError
+        If ``window`` is shorter than two days.
+
+    Notes
+    -----
+    ``z_t = (S_t - mean(S_{t-N+1..t})) / std(S_{t-N+1..t})``: only today and the past enter,
+    so changing a future price cannot change today's z (tested). The brief's wording is
+    "how many standard deviations away from its own rolling average it currently is".
+    """
+    assert window >= 2, "a rolling standard deviation needs at least two days"
+    rolling = spread.rolling(window, min_periods=window)
+    return ((spread - rolling.mean()) / rolling.std()).rename("z")
