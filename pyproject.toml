@@ -41,6 +41,9 @@ dev = [
 line-length = 100
 target-version = "py312"
 extend-include = ["*.ipynb"]
+# ai/ holds the AI assistant's working files, delivered as they are (the brief asks for them as-is)
+extend-exclude = ["ai"]
+force-exclude = true
 
 [tool.ruff.lint]
 # E/W pycodestyle (PEP 8), F pyflakes, I isort, N naming, UP pyupgrade, B bugbear,

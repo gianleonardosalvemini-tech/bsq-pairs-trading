@@ -116,7 +116,8 @@ Mistakes the AI made:
 
 The notebook prose was drafted by the AI; I found it too polished and uniform and had it rewritten in a plainer style under strict rules (no number and no pre-registration statement could change, checked automatically, all notebooks re-run).
 
-
+The full diary of my corrections and of the AI's mistakes, in Italian, is in `ai/correzioni.md`, and the rest of
+`ai/` is left as it is.
 
 ## How to run
 

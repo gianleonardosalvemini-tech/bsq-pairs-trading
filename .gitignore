@@ -14,8 +14,5 @@ __pycache__/
 .env
 .claude/settings.local.json
 
-# AI working files: kept local during the day, reviewed by me and added at the end
-# (remove these three lines before the final commit)
-CLAUDE.md
-ai/
+# Claude Code settings (tool configuration, not a working file of the project)
 .claude/
