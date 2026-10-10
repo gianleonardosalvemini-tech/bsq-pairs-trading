@@ -6,6 +6,8 @@ import logging
 
 from rich.logging import RichHandler
 
+logger = logging.getLogger(__name__)
+
 
 def configure_logging(level: int = logging.INFO) -> None:
     """Route every ``logging.getLogger(__name__)`` logger through a Rich handler.
@@ -14,6 +16,16 @@ def configure_logging(level: int = logging.INFO) -> None:
     ----------
     level : int, default logging.INFO
         Minimum level shown.
+
+    Returns
+    -------
+    None
+        The root logger is configured in place.
+
+    Raises
+    ------
+    ValueError
+        If ``level`` is not a valid logging level (raised by ``logging``).
 
     Notes
     -----
@@ -27,3 +39,4 @@ def configure_logging(level: int = logging.INFO) -> None:
         handlers=[RichHandler(rich_tracebacks=True, show_path=False)],
         force=True,
     )
+    logger.debug("Logging configured at level %s", logging.getLevelName(level))

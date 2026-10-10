@@ -36,6 +36,11 @@ class Settings:
     def from_env(cls) -> Settings:
         """Build the settings from environment variables, with project defaults.
 
+        Parameters
+        ----------
+        None
+            Reads ``PAIRS_DATA_DIR`` and ``PAIRS_RESULTS_DIR`` from the environment / ``.env``.
+
         Returns
         -------
         Settings
@@ -93,7 +98,26 @@ class PairConfig:
     end: date
 
     def __post_init__(self) -> None:
-        """Fail fast on an inconsistent configuration."""
+        """Fail fast on an inconsistent configuration.
+
+        Parameters
+        ----------
+        None
+            Validates the fields set by the dataclass constructor.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ConfigError
+            If the tickers coincide or the dates are not strictly increasing.
+
+        Notes
+        -----
+        Validation happens at construction, so an invalid split can never reach a backtest.
+        """
         if not self.ticker_a or not self.ticker_b or self.ticker_a == self.ticker_b:
             raise ConfigError(f"Invalid pair: {self.ticker_a!r} / {self.ticker_b!r}")
         if not self.start < self.in_sample_end < self.end:

@@ -46,7 +46,7 @@ extend-include = ["*.ipynb"]
 # E/W pycodestyle (PEP 8), F pyflakes, I isort, N naming, UP pyupgrade, B bugbear,
 # D docstrings (NumPy convention), ANN type hints, T20 no print, FA future annotations
 select = ["E", "W", "F", "I", "N", "UP", "B", "D", "ANN", "T20", "FA", "SIM", "RUF"]
-ignore = ["D100", "D104"]
+ignore = []
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
