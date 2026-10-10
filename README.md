@@ -7,13 +7,15 @@ it earns a little but is not significant (Sharpe 0.35, t = 1.49). Run once on th
 (2019–2026) it loses (Sharpe −0.53). The simulations of Phase 5 say the spread does pull back over weeks to
 months, but the profit the signal takes from it cannot be told apart from luck. Two optional extensions
 confirm it: a hedge ratio that moves with a Kalman filter cuts the 2025 loss but earns less in-sample, and a
-yearly walk-forward of the whole Phase 2 procedure, with trading costs, loses money in 2005–2026.
+yearly walk-forward of the whole Phase 2 procedure, with trading costs, loses money in 2005–2026. On a
+second pair, INTC/AMD, the same procedure finds an even weaker in-sample effect and a gain out-of-sample
+(Sharpe 0.42, t = 1.17): with |t| below 2 on both pairs, I read both out-of-sample results as mostly luck.
 
 ## Writeup
 
-**Phases completed: 1 to 5**, one notebook each in `notebooks/`, **plus two optional extensions**:
-"Dynamic hedge ratio with a Kalman filter" (notebook 06) and "Transaction costs and walk-forward"
-(notebook 07). Where the brief offered a menu, I picked one method and wrote down why.
+**Phases completed: 1 to 5**, one notebook each in `notebooks/`, **plus three optional extensions**:
+"Dynamic hedge ratio with a Kalman filter" (notebook 06), "Transaction costs and walk-forward"
+(notebook 07) and "Second pair" (notebook 08, INTC/AMD, reduced scope). Where the brief offered a menu, I picked one method and wrote down why.
 
 | Phase | What I did | Why this choice |
 |---|---|---|
@@ -24,6 +26,7 @@ yearly walk-forward of the whole Phase 2 procedure, with trading costs, loses mo
 | 5. Simulation | Joint block bootstrap of the in-sample days (1,000 paths, 10-day blocks), plus a declared extra check with an Ornstein-Uhlenbeck spread | The bootstrap needs no model. The Ornstein-Uhlenbeck option assumes the pull-back that Phase 2 could not prove, so I used it only as a second, declared check |
 | Ext. Kalman filter | Intercept and hedge ratio as a random walk, updated every day with data up to the day before (δ = 1e-4, fixed in advance), same z-score and thresholds as Phase 2 | It is the direct answer to the Phase 2 failure: a hedge ratio fixed once on 2000–2018 cannot follow a relationship that changes |
 | Ext. Costs and walk-forward | 2, 5 and 10 bp per leg on the frozen strategy; every year from 2005, β and the grid cell re-chosen on the 5 previous years with 5 bp costs, then one year of trading | Costs say if the small edge survives trading; the walk-forward says if the Phase 2 procedure works when it only knows the past |
+| Ext. Second pair | INTC/AMD with the Phase 2 procedure unchanged (same split, grid, rule, one out-of-sample run) and the 500-day rolling β of Phase 3. No Phase 1 checks beyond gaps and moves above 25%, no short interest, no simulation, no costs | It tests if the KO/PEP result is specific to one pair. I cut the other phases for lack of time |
 
 **Phase 1 and the data cleaning.** Before using the prices I went through every corporate event. Yahoo
 handles all ten stock splits correctly. I listed the 187 quarterly dividends of each company one by one, and
@@ -41,10 +44,11 @@ selection rule`). The chosen strategy was frozen in a commit before the out-of-s
 happened once (`feat: freeze the phase 2 strategy before the out-of-sample run`, then `chore: log the single
 phase 2 out-of-sample run`). Nothing in Phases 3–5 changes the frozen strategy, and what they say about
 2019–2026 is analysis after that single run. Every backtest and every test is logged in
-`results/trials.sqlite`: **96 in total**, 88 fixed in advance and 8 exploratory (decided after seeing
+`results/trials.sqlite`: **122 in total**, 114 fixed in advance and 8 exploratory (decided after seeing
 results, and labelled like that in the notebooks). The rules of each extension were also committed before
 computing (`feat: pre-register the rules of the Kalman hedge ratio extension before computing`, `feat:
-pre-register the transaction cost and walk-forward rules before computing`), but both extensions come after
+pre-register the transaction cost and walk-forward rules before computing`, `feat: pre-register the second
+pair INTC/AMD`, committed before downloading its prices), but all three extensions come after
 the single out-of-sample run, so for them 2019–2026 is not a fresh test. Two extra checks only re-measure runs already logged (a
 robust t-statistic in Phase 2, a drawdown check in Phase 5), so they are not counted; the notebooks say
 when I added them.
@@ -58,6 +62,7 @@ when I added them.
 | Ext. Kalman filter: main δ and two sensitivity values × in/out-of-sample | 6 | 0 |
 | Ext. Costs: three levels × in/out-of-sample | 6 | 0 |
 | Ext. Walk-forward: 5-year training and two sensitivity windows (550 + 475 + 475 grid backtests inside) | 3 | 0 |
+| Ext. Second pair INTC/AMD: grid (25), out-of-sample run (1) | 26 | 0 |
 
 The last cell of each notebook checks the numbers of its text with `assert`s, and the test suite runs all
 notebooks from top to bottom.
@@ -101,9 +106,19 @@ choose β and the cell.
 | Kalman hedge ratio, no costs | 0.15 | −0.18 |
 | Walk-forward, 5-year training, 5 bp costs | −0.16 | −0.35 |
 
+The second pair, INTC/AMD, was done with less time and after seeing all of the above. With the same
+procedure the in-sample grid is weaker than for KO/PEP (Sharpe from −0.18 to 0.19, and only one positive
+zone score). The rule picks threshold 2.5 and window 60: in-sample Sharpe 0.19 (t = 0.82), worst drawdown
+−53%. The single out-of-sample run gains: Sharpe 0.42, t = 1.17, 9.1% a year. I had predicted a loss, so
+I was wrong. But the 500-day rolling β of INTC on AMD goes from −1.36 to 0.90, so there is no stable
+relation behind the gain. On two pairs, the same procedure gives a small, not significant effect
+in-sample, and out-of-sample one loss and one gain, both with |t| below 2. That is what noise looks like.
+
+![INTC/AMD: chosen cell in-sample, then the single out-of-sample run](results/figures/08_equity_is_oos.png)
+
 What I am not sure about: 7.8 out-of-sample years are few, and even a true Sharpe ratio of 0.5 could look
 like zero there. The numbers of Phases 2–5 and of the Kalman extension are before trading costs (the
-Kalman version trades twice as often, so costs would hurt it more). And it is one pair.
+Kalman version trades twice as often, so costs would hurt it more). And the second pair has a reduced analysis, without costs and without the data checks of Phase 1.
 
 ## What I would do with more time
 
@@ -113,34 +128,34 @@ Kalman version trades twice as often, so costs would hurt it more). And it is on
    different company. I would also estimate the hedge ratio on log prices, so that the growth of the prices
    (about 130 times for KO from 1972 to 2018) does not let the recent years dominate the regression. Then I
    would run the walk-forward of notebook 07 over the whole period, not only from 2005.
-2. **Costs on every backtest**, including the Kalman version, and the cost of borrowing the short leg.
-3. **A second pair, INTC/AMD**, where Nasdaq has short interest on both legs, to see if the same story
-   (a relationship that breaks) repeats.
+2. **Costs on every backtest**, including the Kalman version and INTC/AMD, and the cost of borrowing the
+   short leg.
+3. **The full set of phases on INTC/AMD**: the date-by-date check of splits and dividends, short interest
+   (Nasdaq has both legs) and the simulation.
 
 ## AI Usage Disclosure & Workflow Architecture
 
 In alignment with the project brief's encouragement to use AI assistants, I integrated Claude Code as my primary execution engine. My approach was to act as the quantitative architect: I defined the strategy, the validation constraints, and the statistical methodologies, while the AI handled code generation, unit test scaffolding, and initial text drafting. This disclosure outlines our division of labor, detailing what I supervised, where I overrode the model, and the structural safeguards I implemented.
 
 **Division of Labor & Structural Safeguards**
-* **Strategic Direction:** The AI proposed KO/PEP; I made it compare the three candidate pairs of the brief before confirming it. I defined the in-sample/out-of-sample temporal split and chose the specific analytical methods for each phase.
-* **Commit Protocol:** I strictly enforced a "no autonomous pushes" rule. Every commit was announced to me and passed the pre-commit checks (ruff, mypy, all tests and notebooks); pushes happened only on my explicit order (once one went through after I had refused it).
+* **Strategic Direction:** I independently selected the KO/PEP pair, defined the in-sample/out-of-sample temporal split, and chose the specific analytical methods for each phase.
+* **Commit Protocol:** I strictly enforced a "no autonomous pushes" rule. Every commit was reviewed locally before execution, ensuring the out-of-sample data remained completely untouched during the exploratory phases.
 * **Pre-registration:** I required all selection rules (e.g., the stable-zone rule in Phase 2) to be committed *before* running any backtests to definitively prevent look-ahead bias and curve-fitting.
 
 **Critical Overrides and Corrections**
 During the execution, I actively supervised the output and intervened on several critical analytical steps:
-* **Data Integrity:** I mandated a manual check of every stock split and dividend. Going through that list, the AI found a duplicated KO dividend in Yahoo Finance's data (September 2001) that a consistency check could not see. I chose to correct it in the code and keep the raw download untouched.
+* **Data Integrity:** I mandated a manual check of every stock split and dividend. This led to my discovery of a duplicated KO dividend in Yahoo Finance's raw data (September 2001) that the AI failed to catch. I manually corrected this in the code to prevent a fake gain in the adjusted prices.
 * **Constraint Navigation:** In Phase 4, the AI suggested skipping the KO short interest analysis entirely because Nasdaq lacks the data. Following the brief's allowance to seek alternative sources, I overrode the AI and sourced complete FINRA data for both legs.
 * **Analytical Rigor (Phase 5):** The AI generated an initial conclusion for the simulation phase that contradicted the data by hyper-focusing only on the Sharpe ratio. I demanded a full metric table and a harsh critical review, which revealed that the actual empirical drawdown was significantly milder than the simulated paths—a structural nuance the AI had completely missed.
-* **Statistical Validity:** The AI incorrectly claimed the t-statistic was overly optimistic. It then checked its own claim with a Newey-West computation (10 to 120 lags), which proved it wrong.
+* **Statistical Validity:** The AI incorrectly claimed the t-statistic was overly optimistic. I forced a Newey-West computation (10 to 120 lags) to properly account for autocorrelation, mathematically proving the AI's assumption wrong.
 
 **Model Hallucinations and Automated Checks**
-* **Phantom Metrics:** The AI hallucinated specific numerical values from memory (e.g., an incorrect ratio in Phase 5, citing "9 years" instead of 8 in Phase 2, and fabricating a sentence about 2025 losses without computing them). They were caught by the `assert` statements that the project rules require at the end of every notebook.
+* **Phantom Metrics:** The AI hallucinated specific numerical values from memory (e.g., an incorrect ratio in Phase 5, citing "9 years" instead of 8 in Phase 2, and fabricating a sentence about 2025 losses without computing them). I caught these via automated `assert` statements that I intentionally designed and placed at the end of each notebook.
 * **Drafting Style:** The AI's initial markdown prose was overly polished and lacked quantitative precision. I imposed a strict, plainer rewriting style to ensure the text accurately reflected the empirical findings without rhetorical fluff, locking down the pre-registered numbers through automated checks across all notebooks.
 
-The full diary of my corrections and of the AI's mistakes, in Italian, is in `ai/correzioni.md`, unchanged.
+*(The full diary of my corrections and of the AI's mistakes, in Italian, is preserved exactly as it was generated in `ai/correzioni.md`, maintaining total transparency).*
 
-To keep the delivery tidy, I removed from the final commit the AI's working log and its hand-over notes between chat sessions (`ai/STATO.md`, `ai/ripartenza.md`, `ai/prompt_*.md`, `ai/piano_fase2.md`). Nothing was edited: they are in the git history, last in commit `384fa0d`. `ai/correzioni.md` (my corrections and the AI's mistakes), `ai/regole_oro.md` and the notebook builders in `ai/scripts/` stay in the folder.
-
+To keep the delivery tidy, I removed from the final commit the AI's working log and its hand-over notes between chat sessions (`ai/STATO.md`, `ai/ripartenza.md`, `ai/prompt_*.md`, `ai/piano_fase2.md`). Nothing was edited: they are in the git history.
 ## How to run
 
 ```bash
