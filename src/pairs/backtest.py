@@ -8,6 +8,8 @@ import math
 import numpy as np
 import pandas as pd
 
+from pairs.spread import build_spread, rolling_zscore
+
 logger = logging.getLogger(__name__)
 
 TRADING_DAYS = 252
@@ -167,3 +169,100 @@ def summarize(ret: pd.Series, position: pd.Series) -> dict[str, float]:
         "pct_in_market": days_in / len(position),
         "avg_days_per_trade": days_in / n_trades if n_trades else 0.0,
     }
+
+
+def run_zscore_strategy(
+    prices: pd.DataFrame,
+    a: str,
+    b: str,
+    beta: float,
+    entry: float,
+    window: int,
+    start: pd.Timestamp,
+    exit: float = 0.0,
+) -> pd.DataFrame:
+    """Run the brief's Phase 2 signal for one (threshold, window) variant.
+
+    Parameters
+    ----------
+    prices : pd.DataFrame
+        Adjusted close prices of the two legs.
+    a, b : str
+        Legs of the spread ``A - beta * B``.
+    beta : float
+        Hedge ratio frozen at ``as_of`` (see :func:`pairs.spread.fit_hedge_ratio`).
+    entry : float
+        Entry threshold on |z|.
+    window : int
+        Rolling window of the z-score, in trading days.
+    start : pd.Timestamp
+        First day positions may be opened; every variant starts flat on the same day.
+    exit : float, default 0.0
+        Exit level ("reverts back toward zero").
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns ``spread``, ``z``, ``position``, ``pnl``, ``gross``, ``ret``.
+
+    Notes
+    -----
+    Composition of :func:`pairs.spread.build_spread`, :func:`pairs.spread.rolling_zscore`,
+    :func:`positions_from_zscore`, :func:`pair_shares` and :func:`run_backtest`. The
+    z-score before ``start`` is masked, so short windows do not get extra history.
+    """
+    spread = build_spread(prices, a, b, beta)
+    z = rolling_zscore(spread, window)
+    assert z.loc[z.index >= start].notna().all(), "z must be defined from start onwards"
+    position = positions_from_zscore(z.where(z.index >= start), entry, exit)
+    result = run_backtest(prices[[a, b]], pair_shares(position, a, b, beta))
+    return pd.concat([spread, z, position, result], axis=1)
+
+
+def select_stable_cell(
+    sharpe: pd.DataFrame, trades: pd.DataFrame, min_trades: int
+) -> tuple[float, int]:
+    """Pick the centre of the most stable zone of a threshold x window grid.
+
+    Parameters
+    ----------
+    sharpe : pd.DataFrame
+        In-sample Sharpe, rows = entry thresholds, columns = windows (both sorted).
+    trades : pd.DataFrame
+        Number of trades, same shape.
+    min_trades : int
+        Fewest trades for a cell to be selectable.
+
+    Returns
+    -------
+    tuple of (float, int)
+        Chosen (entry threshold, window).
+
+    Raises
+    ------
+    AssertionError
+        If the two tables differ in shape or no interior cell has enough trades.
+
+    Notes
+    -----
+    Pre-registered rule (``SignalGrid``): only interior cells compete; each scores the
+    mean Sharpe of itself and its eight neighbours; ties go to fewer trades. Edge cells
+    only serve as neighbours: their own average would use fewer cells and be noisier.
+    """
+    assert sharpe.shape == trades.shape and sharpe.index.equals(trades.index)
+    values = sharpe.to_numpy(dtype=float)
+    counts = trades.to_numpy(dtype=float)
+    thresholds = sharpe.index.to_numpy(dtype=float)
+    windows = sharpe.columns.to_numpy(dtype=int)
+    best: tuple[float, float, float, int] | None = None
+    for i in range(1, values.shape[0] - 1):
+        for j in range(1, values.shape[1] - 1):
+            n = float(counts[i, j])
+            if n < min_trades:
+                continue
+            score = float(values[i - 1 : i + 2, j - 1 : j + 2].mean())
+            if best is None or (score, -n) > (best[0], -best[1]):
+                best = (score, n, float(thresholds[i]), int(windows[j]))
+    assert best is not None, "no interior cell has enough trades"
+    logger.info("Stable zone centre: entry %s, window %s (score %.3f)", best[2], best[3], best[0])
+    return best[2], best[3]

@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS trials (
     period_end TEXT NOT NULL,
     params TEXT NOT NULL,
     metrics TEXT NOT NULL,
-    note TEXT NOT NULL
+    note TEXT NOT NULL,
+    UNIQUE (phase, pair, sample, params)
 )
 """
 
@@ -72,15 +73,17 @@ def log_trial(
     Notes
     -----
     Every backtest in the project goes through here: the README reports the row count,
-    because the brief asks how many things were tried. Tests point ``db_path`` to a
-    temporary folder so they never inflate the real count.
+    because the brief asks how many things were tried. A variant is logged once: re-running
+    the same phase, pair, sample and parameters (e.g. re-executing a notebook) keeps the
+    first record and its time, so the count is the number of distinct variants tried.
+    Tests point ``db_path`` to a temporary folder so they never inflate the real count.
     """
     assert sample in ("in-sample", "out-of-sample"), f"unknown sample {sample!r}"
     with closing(sqlite3.connect(db_path)) as conn, conn:
         conn.execute(_SCHEMA)
         cursor = conn.execute(
-            "INSERT INTO trials (logged_at, phase, pair, sample, period_start, period_end,"
-            " params, metrics, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO trials (logged_at, phase, pair, sample, period_start,"
+            " period_end, params, metrics, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 datetime.now().isoformat(timespec="seconds"),
                 phase,
@@ -93,8 +96,13 @@ def log_trial(
                 note,
             ),
         )
-        row_id = cursor.lastrowid
-    assert row_id is not None
+        if cursor.rowcount == 0:
+            logger.info("Trial already logged, kept the first record: %s", params)
+        row = conn.execute(
+            "SELECT id FROM trials WHERE phase = ? AND pair = ? AND sample = ? AND params = ?",
+            (phase, pair, sample, json.dumps(dict(params))),
+        ).fetchone()
+    row_id = int(row[0])
     logger.info("Logged trial %d (%s, %s, %s)", row_id, phase, sample, params)
     return row_id
 
