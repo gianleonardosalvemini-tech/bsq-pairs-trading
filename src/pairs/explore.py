@@ -1,4 +1,4 @@
-"""Phase 1 calculations: in-sample cut, data quality checks, daily returns, yearly correlation."""
+"""Phase 1 calculations: in-sample cut, data quality checks, dividend adjustment, returns."""
 
 from __future__ import annotations
 
@@ -187,3 +187,42 @@ def largest_moves(close: pd.DataFrame, volume: pd.DataFrame, n: int) -> pd.DataF
             }
         )
     return pd.DataFrame(rows)
+
+
+def adjustment_from_dividends(close: pd.Series, dividends: pd.Series) -> pd.Series:
+    """Rebuild the dividend adjustment factor from the dividends alone.
+
+    Parameters
+    ----------
+    close : pd.Series
+        Close prices (already split-adjusted), sorted DatetimeIndex.
+    dividends : pd.Series
+        Dividend per share, indexed by ex-date; only dates inside ``close`` are used.
+
+    Returns
+    -------
+    pd.Series
+        Factor by which each close must be multiplied to remove the dividends paid
+        later in the series; equals 1 on the last day.
+
+    Raises
+    ------
+    AssertionError
+        If an ex-date is not a trading day of ``close``.
+
+    Notes
+    -----
+    Standard (and Yahoo's) convention: every price before an ex-date is multiplied by
+    ``1 - D / C``, with ``D`` the dividend and ``C`` the close of the day before the
+    ex-date. Comparing this with Yahoo's ``Adj Close / Close`` checks that the adjusted
+    prices are explained by the reported dividends and nothing else.
+    """
+    factor = pd.Series(1.0, index=close.index)
+    first, last = close.index[0], close.index[-1]
+    inside = dividends.loc[(dividends.index > first) & (dividends.index <= last)]
+    for ex_date, amount in inside.items():
+        assert ex_date in close.index, f"ex-date {ex_date} is not a trading day"
+        position = close.index.get_loc(ex_date)
+        assert isinstance(position, int), "duplicate dates"
+        factor.iloc[:position] *= 1 - float(amount) / float(close.iloc[position - 1])
+    return factor

@@ -1,4 +1,4 @@
-"""Phase 1 data pipeline: Yahoo download and raw / parsed / validated checkpoints."""
+"""Phase 1 data pipeline: Yahoo prices and corporate actions, pickled checkpoints."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 RAW_FILE = "prices_raw.pkl"
 PARSED_FILE = "prices_parsed.pkl"
 VALIDATED_FILE = "prices_validated.pkl"
+ACTIONS_FILE = "actions_raw.pkl"
 MAX_EDGE_GAP = timedelta(days=5)
 
 
@@ -154,3 +155,61 @@ def validate_prices(prices: pd.DataFrame, pair: PairConfig, data_dir: Path) -> p
     clean.to_pickle(data_dir / VALIDATED_FILE)
     logger.info("Saved validated checkpoint (%d rows)", len(clean))
     return clean
+
+
+def fetch_corporate_actions(
+    pair: PairConfig, data_dir: Path, refresh: bool = False
+) -> pd.DataFrame:
+    """Download the dividends and stock splits of both legs once, and checkpoint them.
+
+    Parameters
+    ----------
+    pair : PairConfig
+        Tickers whose corporate actions are needed.
+    data_dir : Path
+        Folder holding the pickled checkpoints.
+    refresh : bool, default False
+        Re-download even if the checkpoint exists.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per event: columns ``ticker``, ``dividend`` (dollars per share, 0 if none)
+        and ``split`` (shares received per share held, 0 if none); tz-naive DatetimeIndex
+        named ``date`` (the ex-date).
+
+    Raises
+    ------
+    DataFetchError
+        If Yahoo returns no dividend for either ticker (both pay quarterly dividends).
+
+    Notes
+    -----
+    Needed to explain, and verify, the adjusted close: every dividend and split must be
+    reported, because it changes how past prices read. Yahoo already divides dividend
+    amounts paid before a split by the split ratio, like the prices.
+    """
+    path = data_dir / ACTIONS_FILE
+    if path.exists() and not refresh:
+        logger.info("Loading corporate actions checkpoint %s", path)
+        cached: pd.DataFrame = pd.read_pickle(path)
+        return cached
+    frames = []
+    for ticker in (pair.ticker_a, pair.ticker_b):
+        actions: pd.DataFrame = yf.Ticker(ticker).actions
+        if actions.empty or not (actions["Dividends"] > 0).any():
+            raise DataFetchError(f"No dividends returned for {ticker}")
+        frame = pd.DataFrame(
+            {
+                "ticker": ticker,
+                "dividend": actions["Dividends"].to_numpy(),
+                "split": actions["Stock Splits"].to_numpy(),
+            },
+            index=pd.DatetimeIndex(actions.index).tz_localize(None).normalize(),
+        )
+        frames.append(frame)
+    events = pd.concat(frames).sort_index()
+    events.index.name = "date"
+    events.to_pickle(path)
+    logger.info("Saved corporate actions checkpoint %s (%d events)", path, len(events))
+    return events

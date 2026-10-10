@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from pairs.explore import (
+    adjustment_from_dividends,
     daily_returns,
     largest_moves,
     longest_gaps,
@@ -57,3 +58,11 @@ def test_largest_moves_flags_a_reversed_spike() -> None:
     assert moves["return"].iloc[0] == pytest.approx(0.5)
     assert moves["next_day_return"].iloc[0] == pytest.approx(-1 / 3)
     assert moves["volume_vs_median"].iloc[0] == pytest.approx(1.0)
+
+
+def test_adjustment_from_dividends_known_value() -> None:
+    days = pd.bdate_range("2020-01-01", periods=4)
+    close = pd.Series([100.0, 100.0, 99.0, 99.0], index=days)
+    dividends = pd.Series([1.0], index=[days[2]])  # $1 paid, price was 100 the day before
+    factor = adjustment_from_dividends(close, dividends)
+    assert factor.tolist() == pytest.approx([0.99, 0.99, 1.0, 1.0])
