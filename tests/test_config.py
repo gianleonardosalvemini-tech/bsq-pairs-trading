@@ -4,7 +4,15 @@ from datetime import date
 
 import pytest
 
-from pairs.config import HISTORY_START, PAIR, SIGNAL_GRID, PairConfig, SignalGrid
+from pairs.config import (
+    HISTORY_START,
+    PAIR,
+    PHASE2_STRATEGY,
+    SIGNAL_GRID,
+    FrozenStrategy,
+    PairConfig,
+    SignalGrid,
+)
 from pairs.errors import ConfigError
 
 
@@ -47,3 +55,11 @@ def test_signal_grid_without_interior_fails_fast() -> None:
 def test_signal_grid_exit_above_entry_fails_fast() -> None:
     with pytest.raises(ConfigError):
         SignalGrid(exit_threshold=1.5)
+
+
+def test_phase2_strategy_is_frozen() -> None:
+    assert (PHASE2_STRATEGY.entry, PHASE2_STRATEGY.window) == (1.5, 60)
+    assert PHASE2_STRATEGY.entry in SIGNAL_GRID.entry_thresholds[1:-1]
+    assert PHASE2_STRATEGY.window in SIGNAL_GRID.windows[1:-1]
+    with pytest.raises(ConfigError):
+        FrozenStrategy(entry=1.5, window=60, exit=2.0, beta=0.4)

@@ -219,3 +219,65 @@ class SignalGrid:
 # Fixed at 12:50 on 10 Oct 2026 after the in-sample spread check (half-life ~192 days),
 # before any backtest. 25 grid cells + 24 sensitivity variants = 49 declared trials.
 SIGNAL_GRID = SignalGrid()
+
+
+@dataclass(frozen=True)
+class FrozenStrategy:
+    """The Phase 2 variant chosen on the in-sample period, frozen before the out-of-sample run.
+
+    Attributes
+    ----------
+    entry : float
+        Entry threshold on |z|.
+    window : int
+        Rolling window of the z-score, in trading days.
+    exit : float
+        Exit level on z.
+    beta : float
+        OLS hedge ratio of KO on PEP estimated with ``as_of=PAIR.in_sample_end``.
+
+    Raises
+    ------
+    ConfigError
+        If the values are inconsistent (exit not below entry, window too short, beta <= 0).
+
+    Notes
+    -----
+    Chosen by the pre-registered stable-zone rule of :class:`SignalGrid` (zone score
+    0.361 among the nine interior cells). Nothing here may change after the out-of-sample
+    run; later phases analyse this exact strategy.
+    """
+
+    entry: float
+    window: int
+    exit: float
+    beta: float
+
+    def __post_init__(self) -> None:
+        """Fail fast on an inconsistent frozen strategy.
+
+        Parameters
+        ----------
+        None
+            Validates the fields set by the dataclass constructor.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ConfigError
+            If exit is not in [0, entry), the window is shorter than 2 days or beta <= 0.
+
+        Notes
+        -----
+        Same checks as :class:`SignalGrid`, applied to the single chosen variant.
+        """
+        if not 0 <= self.exit < self.entry or self.window < 2 or self.beta <= 0:
+            raise ConfigError(f"Inconsistent frozen strategy: {self}")
+
+
+# Frozen at 13:20 on 10 Oct 2026, after 49 in-sample trials and before any look at
+# 2019-2026. The notebook re-estimates beta and asserts it matches this value.
+PHASE2_STRATEGY = FrozenStrategy(entry=1.5, window=60, exit=0.0, beta=0.388372)
