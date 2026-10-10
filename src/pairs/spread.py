@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from datetime import date
 
@@ -142,3 +143,54 @@ def rolling_zscore(spread: pd.Series, window: int) -> pd.Series:
     assert window >= 2, "a rolling standard deviation needs at least two days"
     rolling = spread.rolling(window, min_periods=window)
     return ((spread - rolling.mean()) / rolling.std()).rename("z")
+
+
+def mean_crossings_per_year(spread: pd.Series) -> pd.Series:
+    """Count how many times per calendar year the spread crosses its own sample mean.
+
+    Parameters
+    ----------
+    spread : pd.Series
+        Spread on the period being checked (e.g. the in-sample period only).
+
+    Returns
+    -------
+    pd.Series
+        Number of crossings, indexed by year (years without crossings included).
+
+    Notes
+    -----
+    The brief's basic check: a spread that "keeps crossing back over its own historical
+    average" mean-reverts; one that stays on one side for years drifts. The mean is the
+    one of the series passed in, so pass the in-sample spread only.
+    """
+    side = np.sign(spread - spread.mean())
+    crossed = (side != side.shift(1)).iloc[1:]
+    years = pd.DatetimeIndex(crossed.index).year
+    counts: pd.Series = crossed.astype(int).groupby(years).sum()
+    return counts.rename("crossings")
+
+
+def half_life(spread: pd.Series) -> float:
+    """Estimate in how many days a deviation of the spread halves, from an AR(1) fit.
+
+    Parameters
+    ----------
+    spread : pd.Series
+        Spread on the estimation period.
+
+    Returns
+    -------
+    float
+        Half-life in trading days (``inf`` if the spread does not pull back).
+
+    Notes
+    -----
+    Regress the daily change on yesterday's level: ``dS_t = c + phi * S_{t-1} + e``.
+    A negative ``phi`` means pull-back toward the mean; half-life = ``-ln 2 / phi``.
+    A rough measure, used to choose the grid of rolling windows.
+    """
+    lagged = spread.shift(1).iloc[1:].to_numpy(dtype=float)
+    change = spread.diff().iloc[1:].to_numpy(dtype=float)
+    phi = float(np.polyfit(lagged, change, 1)[0])
+    return -math.log(2) / phi if phi < 0 else math.inf

@@ -6,7 +6,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from pairs.spread import build_spread, fit_hedge_ratio, rolling_zscore
+from pairs.spread import (
+    build_spread,
+    fit_hedge_ratio,
+    half_life,
+    mean_crossings_per_year,
+    rolling_zscore,
+)
 
 
 def make_prices() -> pd.DataFrame:
@@ -61,3 +67,19 @@ def test_zscore_known_value() -> None:
     spread = pd.Series([1.0, 2.0, 3.0, 6.0])
     z = rolling_zscore(spread, 3)
     assert z.iloc[3] == pytest.approx((6.0 - 11 / 3) / np.std([2.0, 3.0, 6.0], ddof=1))
+
+
+def test_mean_crossings_by_hand() -> None:
+    days = pd.to_datetime(["2020-01-02", "2020-06-01", "2020-12-01", "2021-03-01", "2021-06-01"])
+    spread = pd.Series([1.0, -1.0, 1.0, 1.0, 1.0], index=days)  # mean 0.6
+    assert mean_crossings_per_year(spread).to_dict() == {2020: 2, 2021: 0}
+
+
+def test_half_life_of_known_ar1() -> None:
+    rng = np.random.default_rng(3)
+    phi, values = -0.1, [0.0]
+    for shock in rng.normal(0, 1, 20_000):
+        values.append(values[-1] * (1 + phi) + shock)
+    estimate = half_life(pd.Series(values))
+    assert estimate == pytest.approx(-np.log(2) / phi, rel=0.1)
+    assert half_life(pd.Series(1.01 ** np.arange(100.0))) == float("inf")  # explodes
