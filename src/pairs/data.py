@@ -19,6 +19,8 @@ RAW_FILE = "prices_raw.pkl"
 PARSED_FILE = "prices_parsed.pkl"
 VALIDATED_FILE = "prices_validated.pkl"
 ACTIONS_FILE = "actions_raw.pkl"
+CONTEXT_FILE = "prices_context_raw.pkl"
+CONTEXT_START = date(1962, 1, 2)  # Yahoo's first KO day; PEP starts on 1972-06-01
 MAX_EDGE_GAP = timedelta(days=5)
 
 
@@ -86,20 +88,86 @@ def fetch_raw_prices(pair: PairConfig, data_dir: Path, refresh: bool = False) ->
     The raw checkpoint is read back instead of re-downloading because Yahoo rewrites
     adjusted prices after every dividend: a new download would not reproduce our numbers.
     ``auto_adjust=False`` keeps both Close and Adj Close, so the choice is made (and
-    documented) in the parsing step, not hidden inside the download. Yahoo's ``end`` is
-    exclusive, hence the extra day.
+    documented) in the parsing step, not hidden inside the download.
     """
     path = data_dir / RAW_FILE
     if path.exists() and not refresh:
         logger.info("Loading raw checkpoint %s", path)
         cached: pd.DataFrame = pd.read_pickle(path)
         return cached
+    return _download([pair.ticker_a, pair.ticker_b], pair.start, pair.end, path)
+
+
+def fetch_context_prices(pair: PairConfig, data_dir: Path, refresh: bool = False) -> pd.DataFrame:
+    """Download the history *before* the project sample, used only as context in Phase 1.
+
+    Parameters
+    ----------
+    pair : PairConfig
+        Tickers; the history ends the day before ``pair.start``.
+    data_dir : Path
+        Folder holding the pickled checkpoints.
+    refresh : bool, default False
+        Re-download even if the checkpoint exists.
+
+    Returns
+    -------
+    pd.DataFrame
+        Yahoo output untouched, from ``CONTEXT_START`` (or the first available day) to the
+        day before ``pair.start``; same layout as :func:`fetch_raw_prices`.
+
+    Raises
+    ------
+    DataFetchError
+        If Yahoo returns no rows, or no Adj Close for either ticker.
+
+    Notes
+    -----
+    This history is never used to estimate or tune anything: it lies before the
+    in-sample period, so looking at it cannot contaminate the out-of-sample test. It is
+    given less weight because PepsiCo was a different business before 1997-1999
+    (restaurants, bottlers) and prices were quoted in fractions of a dollar until 2001.
+    """
+    path = data_dir / CONTEXT_FILE
+    if path.exists() and not refresh:
+        logger.info("Loading context checkpoint %s", path)
+        cached: pd.DataFrame = pd.read_pickle(path)
+        return cached
     tickers = [pair.ticker_a, pair.ticker_b]
-    logger.info("Downloading %s from Yahoo, %s to %s", tickers, pair.start, pair.end)
+    return _download(tickers, CONTEXT_START, pair.start - timedelta(days=1), path)
+
+
+def _download(tickers: list[str], start: date, end: date, path: Path) -> pd.DataFrame:
+    """Download daily prices from Yahoo (``end`` inclusive), check them, and pickle them.
+
+    Parameters
+    ----------
+    tickers : list of str
+        Yahoo tickers.
+    start, end : date
+        First and last day requested, both inclusive.
+    path : Path
+        Checkpoint file to write.
+
+    Returns
+    -------
+    pd.DataFrame
+        Yahoo output untouched.
+
+    Raises
+    ------
+    DataFetchError
+        If Yahoo returns no rows, or no Adj Close for either ticker.
+
+    Notes
+    -----
+    Yahoo's ``end`` is exclusive, hence the extra day.
+    """
+    logger.info("Downloading %s from Yahoo, %s to %s", tickers, start, end)
     raw: pd.DataFrame | None = yf.download(  # yfinance is untyped: pin the type here
         tickers,
-        start=pair.start.isoformat(),
-        end=(pair.end + timedelta(days=1)).isoformat(),
+        start=start.isoformat(),
+        end=(end + timedelta(days=1)).isoformat(),
         auto_adjust=False,
         progress=False,
     )
@@ -109,7 +177,7 @@ def fetch_raw_prices(pair: PairConfig, data_dir: Path, refresh: bool = False) ->
         if raw["Adj Close"][ticker].dropna().empty:
             raise DataFetchError(f"No Adj Close data for {ticker}")
     raw.to_pickle(path)
-    logger.info("Saved raw checkpoint %s (%d rows)", path, len(raw))
+    logger.info("Saved checkpoint %s (%d rows)", path, len(raw))
     return raw
 
 
