@@ -1,4 +1,4 @@
-"""Phase 1 calculations: in-sample cut, daily returns, correlation by calendar year."""
+"""Phase 1 calculations: in-sample cut, data quality checks, daily returns, yearly correlation."""
 
 from __future__ import annotations
 
@@ -101,3 +101,89 @@ def yearly_correlation(returns: pd.DataFrame, col_a: str, col_b: str) -> pd.Seri
         int(year): float(group[col_a].corr(group[col_b])) for year, group in returns.groupby(years)
     }
     return pd.Series(by_year, name="correlation")
+
+
+def longest_gaps(index: pd.DatetimeIndex, n: int) -> pd.DataFrame:
+    """List the ``n`` longest pauses between two consecutive trading days.
+
+    Parameters
+    ----------
+    index : pd.DatetimeIndex
+        Trading days, sorted.
+    n : int
+        How many gaps to return.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns ``from``, ``to`` (dates) and ``calendar_days``, longest first.
+
+    Raises
+    ------
+    AssertionError
+        If the index is not sorted.
+
+    Notes
+    -----
+    A normal weekend is a 3-day gap. Anything longer must match a known market closure
+    (holiday, exceptional event); otherwise it would be missing data.
+    """
+    assert index.is_monotonic_increasing, "index must be sorted"
+    days = pd.Series(index)
+    gap = days.diff().dt.days
+    top = gap.nlargest(n).index
+    return pd.DataFrame(
+        {
+            "from": days[top - 1].dt.date.to_numpy(),
+            "to": days[top].dt.date.to_numpy(),
+            "calendar_days": gap[top].astype(int).to_numpy(),
+        }
+    )
+
+
+def largest_moves(close: pd.DataFrame, volume: pd.DataFrame, n: int) -> pd.DataFrame:
+    """List the ``n`` largest one-day price moves, with evidence for or against a data error.
+
+    Parameters
+    ----------
+    close : pd.DataFrame
+        Prices, one column per ticker.
+    volume : pd.DataFrame
+        Traded shares, same layout as ``close``.
+    n : int
+        How many moves to return.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns ``date``, ``ticker``, ``return``, ``next_day_return`` and
+        ``volume_vs_median`` (volume that day divided by the ticker's median volume).
+
+    Raises
+    ------
+    KeyError
+        If ``volume`` lacks a ticker of ``close`` (raised by pandas).
+
+    Notes
+    -----
+    A bad price print typically jumps and fully reverses the next day on ordinary volume.
+    A real event keeps the new level and trades on unusually high volume.
+    """
+    returns = close.pct_change()
+    sizes = pd.concat({ticker: returns[ticker].abs() for ticker in close.columns})
+    rows = []
+    for ticker, day in sizes.nlargest(n).index:
+        position = close.index.get_loc(day)
+        assert isinstance(position, int), "duplicate dates"
+        series = returns[ticker]
+        next_day = series.iloc[position + 1] if position + 1 < len(close) else float("nan")
+        rows.append(
+            {
+                "date": pd.Timestamp(day).date(),
+                "ticker": ticker,
+                "return": float(series.iloc[position]),
+                "next_day_return": float(next_day),
+                "volume_vs_median": float(volume[ticker].iloc[position] / volume[ticker].median()),
+            }
+        )
+    return pd.DataFrame(rows)
