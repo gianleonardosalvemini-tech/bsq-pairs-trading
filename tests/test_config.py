@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from pairs.config import PairConfig
+from pairs.config import PAIR, PairConfig
 from pairs.errors import ConfigError
 
 
@@ -21,3 +21,8 @@ def test_same_ticker_fails_fast() -> None:
 def test_split_after_end_fails_fast() -> None:
     with pytest.raises(ConfigError):
         PairConfig("KO", "PEP", date(2005, 1, 1), date(2027, 1, 1), date(2026, 9, 30))
+
+
+def test_project_pair_split_is_fixed() -> None:
+    assert (PAIR.ticker_a, PAIR.ticker_b) == ("KO", "PEP")
+    assert PAIR.in_sample_end == date(2018, 12, 31)

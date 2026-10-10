@@ -126,3 +126,15 @@ class PairConfig:
                 f"Dates must satisfy start < in_sample_end < end, got "
                 f"{self.start} / {self.in_sample_end} / {self.end}"
             )
+
+
+# Fixed at 10:55 on 10 Oct 2026, before downloading or looking at any price data.
+# In-sample 2000-2018 (~19 years) for every estimate; out-of-sample 2019 to the last close
+# before the project day (~7.8 years, ~29% of the sample), run once at the end.
+PAIR = PairConfig(
+    ticker_a="KO",
+    ticker_b="PEP",
+    start=date(2000, 1, 3),
+    in_sample_end=date(2018, 12, 31),
+    end=date(2026, 10, 9),
+)
