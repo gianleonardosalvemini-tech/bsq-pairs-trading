@@ -139,6 +139,17 @@ PAIR = PairConfig(
     end=date(2026, 10, 9),
 )
 
+# Fixed at 20:00 on 10 Oct 2026, before downloading INTC/AMD prices. The pair was the second
+# pair already chosen in the morning (diary, 11:05); same dates and split as PAIR. Used only by
+# the "second pair" extension, which repeats the Phase 2 procedure unchanged.
+SECOND_PAIR = PairConfig(
+    ticker_a="INTC",
+    ticker_b="AMD",
+    start=date(2000, 1, 3),
+    in_sample_end=date(2018, 12, 31),
+    end=date(2026, 10, 9),
+)
+
 # Phase 1 describes the whole common history on Yahoo: 1972-06-01 is PepsiCo's first day there
 # (Coca-Cola starts in 1962). Descriptive only: nothing is estimated before PAIR.start.
 HISTORY_START = date(1972, 6, 1)
