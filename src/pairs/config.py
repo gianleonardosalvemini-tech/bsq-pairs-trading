@@ -138,3 +138,7 @@ PAIR = PairConfig(
     in_sample_end=date(2018, 12, 31),
     end=date(2026, 10, 9),
 )
+
+# Phase 1 describes the whole common history on Yahoo: 1972-06-01 is PepsiCo's first day there
+# (Coca-Cola starts in 1962). Descriptive only: nothing is estimated before PAIR.start.
+HISTORY_START = date(1972, 6, 1)

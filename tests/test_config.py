@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from pairs.config import PAIR, PairConfig
+from pairs.config import HISTORY_START, PAIR, PairConfig
 from pairs.errors import ConfigError
 
 
@@ -26,3 +26,8 @@ def test_split_after_end_fails_fast() -> None:
 def test_project_pair_split_is_fixed() -> None:
     assert (PAIR.ticker_a, PAIR.ticker_b) == ("KO", "PEP")
     assert PAIR.in_sample_end == date(2018, 12, 31)
+
+
+def test_history_start_is_only_descriptive() -> None:
+    # Phase 1 history starts on PepsiCo's first Yahoo day, before the strategy's in-sample
+    assert date(1972, 6, 1) == HISTORY_START < PAIR.start
