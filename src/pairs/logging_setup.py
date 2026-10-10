@@ -15,7 +15,7 @@ def configure_logging(level: int = logging.INFO) -> None:
     Parameters
     ----------
     level : int, default logging.INFO
-        Minimum level shown.
+        Minimum level shown for the ``pairs`` package.
 
     Returns
     -------
@@ -30,13 +30,16 @@ def configure_logging(level: int = logging.INFO) -> None:
     Notes
     -----
     Modules never call ``print``: they log. Only entry points (notebooks, CLI) call
-    this function, once, so that library code stays silent unless asked.
+    this function, once, so that library code stays silent unless asked. ``level``
+    applies to this project's loggers only; third-party libraries (e.g. kaleido, which
+    logs every PNG export) are shown from WARNING up, to keep notebook output readable.
     """
     logging.basicConfig(
-        level=level,
+        level=logging.WARNING,
         format="%(message)s",
         datefmt="%H:%M:%S",
         handlers=[RichHandler(rich_tracebacks=True, show_path=False)],
         force=True,
     )
+    logging.getLogger("pairs").setLevel(level)
     logger.debug("Logging configured at level %s", logging.getLevelName(level))

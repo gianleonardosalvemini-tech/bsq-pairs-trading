@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from dataclasses import dataclass
+from datetime import date, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -19,6 +20,42 @@ PARSED_FILE = "prices_parsed.pkl"
 VALIDATED_FILE = "prices_validated.pkl"
 ACTIONS_FILE = "actions_raw.pkl"
 MAX_EDGE_GAP = timedelta(days=5)
+
+
+@dataclass(frozen=True)
+class DividendError:
+    """A dividend that Yahoo reports, and bakes into Adj Close, but that was never paid.
+
+    Attributes
+    ----------
+    ticker : str
+        Stock concerned.
+    ex_date : date
+        Ex-date of the wrong record.
+    amount : float
+        Wrong amount, in dollars per share as Yahoo reports it.
+    reason : str
+        Why the record is wrong (shown in the notebook).
+    """
+
+    ticker: str
+    ex_date: date
+    amount: float
+    reason: str
+
+
+# Found on 10 Oct 2026 by listing every in-sample dividend date by date (Phase 1 notebook).
+KNOWN_DIVIDEND_ERRORS = (
+    DividendError(
+        ticker="KO",
+        ex_date=date(2001, 9, 10),
+        amount=0.18,
+        reason=(
+            "Duplicate of the real 0.09 dividend of 2001-09-17 (ex-date moved by the market "
+            "closure after 11 September), at its amount before the 2012 2-for-1 split"
+        ),
+    ),
+)
 
 
 def fetch_raw_prices(pair: PairConfig, data_dir: Path, refresh: bool = False) -> pd.DataFrame:
@@ -213,3 +250,51 @@ def fetch_corporate_actions(
     events.to_pickle(path)
     logger.info("Saved corporate actions checkpoint %s (%d events)", path, len(events))
     return events
+
+
+def correct_dividend_errors(
+    prices: pd.DataFrame, raw: pd.DataFrame, errors: tuple[DividendError, ...]
+) -> pd.DataFrame:
+    """Remove from the adjusted prices the effect of dividends that were never paid.
+
+    Parameters
+    ----------
+    prices : pd.DataFrame
+        Output of :func:`parse_prices` (adjusted close, one column per ticker).
+    raw : pd.DataFrame
+        Output of :func:`fetch_raw_prices`, for the unadjusted close.
+    errors : tuple of DividendError
+        The wrong dividend records, e.g. ``KNOWN_DIVIDEND_ERRORS``.
+
+    Returns
+    -------
+    pd.DataFrame
+        A corrected copy; ``prices`` itself is not modified.
+
+    Raises
+    ------
+    AssertionError
+        If, after the correction, the adjusted return on the ex-date still differs from
+        the close return (which it must equal, since nothing was paid that day).
+
+    Notes
+    -----
+    Yahoo multiplied every adjusted price before the ex-date by ``1 - D / C`` (``D`` the
+    wrong dividend, ``C`` the close of the previous day); dividing by the same factor
+    undoes exactly that and nothing else. The raw checkpoint stays as Yahoo sent it.
+    """
+    fixed = prices.copy()
+    for error in errors:
+        ex_day = pd.Timestamp(error.ex_date)
+        if error.ticker not in fixed.columns or ex_day not in fixed.index:
+            continue
+        close = raw[("Close", error.ticker)]
+        position = close.index.get_loc(ex_day)
+        assert isinstance(position, int), "duplicate dates"
+        factor = 1 - error.amount / float(close.iloc[position - 1])
+        fixed.loc[fixed.index < ex_day, error.ticker] /= factor
+        adj_return = fixed[error.ticker].pct_change().loc[ex_day]
+        close_return = close.pct_change().loc[ex_day]
+        assert abs(adj_return - close_return) < 1e-4, "correction did not remove the dividend"
+        logger.info("Removed wrong %s dividend of %s (factor %.5f)", error.ticker, ex_day, factor)
+    return fixed

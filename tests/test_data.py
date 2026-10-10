@@ -8,7 +8,14 @@ import pandas as pd
 import pytest
 
 from pairs.config import PairConfig
-from pairs.data import PARSED_FILE, VALIDATED_FILE, parse_prices, validate_prices
+from pairs.data import (
+    PARSED_FILE,
+    VALIDATED_FILE,
+    DividendError,
+    correct_dividend_errors,
+    parse_prices,
+    validate_prices,
+)
 from pairs.errors import StaleDataError
 
 PAIR = PairConfig("KO", "PEP", date(2020, 1, 1), date(2020, 1, 10), date(2020, 1, 31))
@@ -50,3 +57,18 @@ def test_validate_rejects_non_positive_price(tmp_path: Path) -> None:
     prices.loc[prices.index[5], "KO"] = 0.0
     with pytest.raises(AssertionError):
         validate_prices(prices, PAIR, tmp_path)
+
+
+def test_correct_dividend_errors_undoes_a_fake_dividend(tmp_path: Path) -> None:
+    days = pd.bdate_range("2020-01-01", periods=4)
+    columns = pd.MultiIndex.from_product([["Adj Close", "Close"], ["KO", "PEP"]])
+    # Close is flat at 100; Yahoo applied a fake $1 dividend on day 2 to Adj Close
+    values = [[99.0, 50.0, 100.0, 50.0], [99.0, 50.0, 100.0, 50.0]]
+    values += [[100.0, 50.0, 100.0, 50.0], [100.0, 50.0, 100.0, 50.0]]
+    raw = pd.DataFrame(values, index=days, columns=columns)
+    prices = parse_prices(raw, PAIR, tmp_path)
+    error = DividendError("KO", days[2].date(), 1.0, "test")
+    fixed = correct_dividend_errors(prices, raw, (error,))
+    assert fixed["KO"].tolist() == pytest.approx([100.0] * 4)
+    assert fixed["PEP"].equals(prices["PEP"])
+    assert prices["KO"].iloc[0] == 99.0  # input untouched
