@@ -24,7 +24,8 @@ class Settings:
     Attributes
     ----------
     data_dir : Path
-        Folder for downloaded data and pickled checkpoints (not versioned).
+        Folder for downloaded data and pickled checkpoints (versioned: Yahoo rewrites
+        adjusted prices after each dividend, so a re-download would not reproduce results).
     results_dir : Path
         Folder for figures and the SQLite trial log (versioned).
     """

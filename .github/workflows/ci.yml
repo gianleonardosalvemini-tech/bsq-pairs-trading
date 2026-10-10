@@ -11,8 +11,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
-      - name: Install (exact versions from uv.lock)
-        run: uv sync --frozen
+      - name: Install (exact versions; fails if uv.lock is out of date)
+        run: uv sync --locked
       - name: Lint
         run: uv run ruff check
       - name: Format
