@@ -142,3 +142,80 @@ PAIR = PairConfig(
 # Phase 1 describes the whole common history on Yahoo: 1972-06-01 is PepsiCo's first day there
 # (Coca-Cola starts in 1962). Descriptive only: nothing is estimated before PAIR.start.
 HISTORY_START = date(1972, 6, 1)
+
+
+@dataclass(frozen=True)
+class SignalGrid:
+    """Phase 2 rules, written down before the first backtest.
+
+    Attributes
+    ----------
+    entry_thresholds : tuple of float
+        |z| needed to open a position. The interior values are the brief's own example
+        ("1.5, 2, 2.5"); the two edges only measure sensitivity.
+    windows : tuple of int
+        Trading days of the rolling mean and standard deviation of the spread.
+    exit_threshold : float
+        z level at which a position is closed ("reverts back toward zero").
+    min_trades : int
+        Fewest in-sample trades for a cell to be selectable.
+    threshold_offsets : tuple of float
+        Small changes added to the chosen threshold in the sensitivity check.
+    window_factors : tuple of float
+        Small relative changes applied to the chosen window in the sensitivity check.
+
+    Raises
+    ------
+    ConfigError
+        If a grid axis has fewer than three values (no interior cell), is not strictly
+        increasing, or the exit level is not below every entry threshold.
+
+    Notes
+    -----
+    Selection: among interior cells with at least ``min_trades`` trades, the highest
+    in-sample Sharpe averaged over the cell and its eight neighbours; ties go to fewer
+    trades. Edge cells are never selected because their average uses fewer neighbours
+    and is noisier. The sensitivity check (offsets x factors around the chosen cell) is
+    a diagnostic only: it is logged as trials and never used to re-select.
+    """
+
+    entry_thresholds: tuple[float, ...] = (1.0, 1.5, 2.0, 2.5, 3.0)
+    windows: tuple[int, ...] = (20, 60, 120, 190, 250)
+    exit_threshold: float = 0.0
+    min_trades: int = 20
+    threshold_offsets: tuple[float, ...] = (-0.2, -0.1, 0.0, 0.1, 0.2)
+    window_factors: tuple[float, ...] = (0.9, 0.95, 1.0, 1.05, 1.1)
+
+    def __post_init__(self) -> None:
+        """Fail fast on an inconsistent grid.
+
+        Parameters
+        ----------
+        None
+            Validates the fields set by the dataclass constructor.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ConfigError
+            If an axis is too short or unsorted, or the exit is not below every entry.
+
+        Notes
+        -----
+        Checked at construction, so a broken grid can never reach a backtest.
+        """
+        for name, axis in (("entry_thresholds", self.entry_thresholds), ("windows", self.windows)):
+            if len(axis) < 3 or list(axis) != sorted(set(axis)):
+                raise ConfigError(f"{name} needs >= 3 strictly increasing values, got {axis}")
+        if not 0 <= self.exit_threshold < self.entry_thresholds[0]:
+            raise ConfigError(f"exit {self.exit_threshold} must be in [0, lowest entry)")
+        if self.windows[0] < 2 or self.min_trades < 1:
+            raise ConfigError("windows must be >= 2 days and min_trades >= 1")
+
+
+# Fixed at 12:50 on 10 Oct 2026 after the in-sample spread check (half-life ~192 days),
+# before any backtest. 25 grid cells + 24 sensitivity variants = 49 declared trials.
+SIGNAL_GRID = SignalGrid()

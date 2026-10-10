@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from pairs.config import HISTORY_START, PAIR, PairConfig
+from pairs.config import HISTORY_START, PAIR, SIGNAL_GRID, PairConfig, SignalGrid
 from pairs.errors import ConfigError
 
 
@@ -31,3 +31,19 @@ def test_project_pair_split_is_fixed() -> None:
 def test_history_start_is_only_descriptive() -> None:
     # Phase 1 history starts on PepsiCo's first Yahoo day, before the strategy's in-sample
     assert date(1972, 6, 1) == HISTORY_START < PAIR.start
+
+
+def test_signal_grid_is_preregistered() -> None:
+    assert SIGNAL_GRID.entry_thresholds == (1.0, 1.5, 2.0, 2.5, 3.0)
+    assert SIGNAL_GRID.windows == (20, 60, 120, 190, 250)
+    assert SIGNAL_GRID.exit_threshold == 0.0
+
+
+def test_signal_grid_without_interior_fails_fast() -> None:
+    with pytest.raises(ConfigError):
+        SignalGrid(entry_thresholds=(1.0, 2.0))
+
+
+def test_signal_grid_exit_above_entry_fails_fast() -> None:
+    with pytest.raises(ConfigError):
+        SignalGrid(exit_threshold=1.5)
